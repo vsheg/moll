@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "moll"
+version = "0.1.0"
+description = ""
+authors = ["Vsevolod O. Shegolev <v@sheg.cc>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+seaborn = "^0.12.2"
+tqdm = "^4.66.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+pylint = "^2.17.4"
+pytest = "^7.3.2"
+jax = "^0.4.14"
+jaxlib = "^0.4.14"
+rdkit = "^2023.3.1"
+ipykernel = "^6.25.2"
+ipython = "^8.15.0"
+autopep8 = "^2.0.4"
+rich = "^13.5.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
