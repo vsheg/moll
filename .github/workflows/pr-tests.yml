@@ -1,0 +1,23 @@
+name: Tests on PR to main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, fedora-latest]
+        python-version: ['3.9', '3.10', '3.11']
+    runs-on: ${{ matrix.os }}    
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+      - run: poetry install
+      - run: poetry run pytest
