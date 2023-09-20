@@ -2,6 +2,7 @@ name: Tests on push
 
 on:
   push:
+    branches-ignore: [main] # it has its own workflow
     paths:
       - 'moll/**'
       - 'tests/**'
