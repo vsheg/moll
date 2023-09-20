@@ -15,10 +15,10 @@ jobs:
     environment: build
     steps:
       - uses: actions/checkout@v4
-      - run: pipx install 'poetry==${{ vars.TARGET_POETRY_VERSION }}'
       - uses: actions/setup-python@v4
         with:
           python-version: '${{ vars.TARGET_PYTHON_VERSION }}'
           cache: poetry
+      - run: pipx install 'poetry==${{ vars.TARGET_POETRY_VERSION }}'
       - run: poetry install
       - run: poetry run pytest
