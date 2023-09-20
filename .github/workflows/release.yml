@@ -1,0 +1,33 @@
+name: Release package to PyPI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: build
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install 'poetry==${{ vars.TARGET_POETRY_VERSION }}'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "${{ vars.TARGET_PYTHON_VERSION }}"
+          cache: poetry
+      - run: poetry install
+      - run: poetry build
+      - uses: actions/upload-artifact@v3
+        with:
+          path: dist/
+  release-test:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://test.pypi.org/p/moll
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v3
+      - uses: pypa/gh-action-pypi-publish@release/v1
