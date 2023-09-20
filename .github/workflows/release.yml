@@ -30,4 +30,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/download-artifact@v3
+        with:
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
