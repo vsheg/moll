@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "moll"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Vsevolod O. Shegolev <v@sheg.cc>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 seaborn = "^0.12.2"
 tqdm = "^4.66.1"
 
