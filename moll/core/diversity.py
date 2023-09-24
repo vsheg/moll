@@ -21,8 +21,9 @@ class OnlineDiversityPicker:
         self.threshold = threshold
 
         self.data_ = None
+        self.labels = []
 
-        self.n_viewed: int = 0
+        self.n_seen: int = 0
         self.n_accepted: int = 0
 
     def _fill_if_not_full(self, point: jnp.ndarray) -> bool:
@@ -33,23 +34,24 @@ class OnlineDiversityPicker:
         # If it's a first point, just add it
         if self.is_empty():
             self.data_ = jnp.array([point])
-            self.n_accepted = 1
             return True
 
         # If it's not a first point, check if it's already in the bag
         if is_accepted := not is_in_bag(point, self.data_):
             self.data_ = jnp.vstack([self.data_, point])
-            self.n_accepted += is_accepted
 
         return is_accepted
 
-    def append(self, point) -> bool:
+    def _next_label(self) -> int:
+        """
+        Return the next label.
+        """
+        return self.n_seen
+
+    def append(self, point, label=None) -> bool:
         """
         Add a point to the picker.
         """
-
-        # Update the number of viewed points
-        self.n_viewed += 1
 
         # If we haven't seen enough points, just add the point to the data rejecting duplicates
         if not self.is_full():
@@ -63,7 +65,9 @@ class OnlineDiversityPicker:
                 n_neighbors=self.n_neighbors,
                 threshold=self.threshold,
             )
-            self.n_accepted += is_accepted
+
+        # Update the number of viewed points
+        self._update_counters(is_accepted)
 
         # Return whether the point was accepted or not
         return is_accepted
@@ -77,7 +81,7 @@ class OnlineDiversityPicker:
 
         self.data_ = jnp.array(points)
         self.n_accepted = len(points)
-        self.n_viewed = len(points)
+        self.n_seen = len(points)
 
     def extend(self, points: jnp.ndarray | list) -> int:
         """
@@ -91,12 +95,9 @@ class OnlineDiversityPicker:
             if self.is_full():
                 break
             else:
-                is_accepted = self._fill_if_not_full(point)
-                n_accepted += is_accepted
-                self.n_viewed += 1
+                n_accepted += self.append(point)
         else:
             # If we iterated over all points, return the number of added points
-            self.n_accepted += n_accepted
             return n_accepted
 
         # If there still some point:
@@ -111,19 +112,28 @@ class OnlineDiversityPicker:
         )
 
         # Update the number of accepted points
-        sum = acceptances.sum().item()
-        self.n_accepted += sum
-        n_accepted += sum
-        self.n_viewed += len(points)
+
+        for is_accepted in acceptances:
+            self._update_counters(is_accepted)
+
+        n_accepted += acceptances.sum().item()
 
         return n_accepted
+
+    def _update_counters(self, is_accepted: bool):
+        """
+        Update the counters.
+        """
+        if is_accepted:
+            self.n_accepted += 1
+        self.n_seen += 1
 
     @property
     def n_rejected(self) -> int:
         """
         Return the number of rejected points.
         """
-        return self.n_viewed - self.n_accepted
+        return self.n_seen - self.n_accepted
 
     def is_full(self) -> bool:
         """
