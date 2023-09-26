@@ -2,7 +2,12 @@ from typing import Iterable
 
 import jax.numpy as jnp
 
-from moll.core.distance import add_one_point_to_the_bag, add_points_to_bag, is_in_bag
+from moll.core.distance import (
+    add_point_to_bag,
+    add_points_to_bag,
+    is_in_bag,
+    keep_last_changes,
+)
 
 __all__ = ["OnlineDiversityPicker"]
 
@@ -42,13 +47,13 @@ class OnlineDiversityPicker:
 
         return is_accepted
 
-    def _next_label(self) -> int:
+    def _create_label(self) -> int:
         """
         Return the next label.
         """
         return self.n_seen
 
-    def append(self, point, label=None) -> bool:
+    def append(self, point, label=None, return_idx=False) -> bool:
         """
         Add a point to the picker.
         """
@@ -58,7 +63,7 @@ class OnlineDiversityPicker:
             is_accepted = self._fill_if_not_full(point)
         else:
             # If we have seen enough points, decide whether to add the point or not
-            is_accepted, self.data_ = add_one_point_to_the_bag(
+            self.data_, is_accepted, old_idx = add_point_to_bag(
                 x=point,
                 X=self.data_,
                 dist=self.dist,
@@ -66,10 +71,23 @@ class OnlineDiversityPicker:
                 threshold=self.threshold,
             )
 
+            old_idx = None if old_idx >= 0 else old_idx
+
         # Update the number of viewed points
         self._update_counters(is_accepted)
+        old_idx = self.n_accepted - 1
+
+        # If the point was accepted, add the label
+        if is_accepted:
+            label = label or self._create_label()
+            if old_idx < len(self.labels):
+                self.labels[old_idx] = label
+            else:
+                self.labels.append(label)
 
         # Return whether the point was accepted or not
+        if return_idx:
+            return is_accepted, old_idx
         return is_accepted
 
     def fast_init(self, points: jnp.ndarray) -> None:
@@ -83,27 +101,39 @@ class OnlineDiversityPicker:
         self.n_accepted = len(points)
         self.n_seen = len(points)
 
-    def extend(self, points: jnp.ndarray | list) -> int:
+    def extend(self, points: jnp.ndarray | list, labels=None, *, pairs=None) -> int:
         """
         Add a batch of points to the picker.
         """
 
-        n_accepted = 0
+        assert pairs is None or (
+            points is None and labels is None
+        ), "`pairs` are provided, then `points` and `labels` must be None"
 
-        # If we haven't seen enough points, just add the points to the data rejecting duplicates
+        if pairs:
+            points, labels = zip(*pairs)
+
+        changed_item_idxs = -jnp.ones(len(points), dtype=int)
+        first_stage_has_run = False
+
+        # STAGE 1: If we haven't seen enough points, just add the points to the data rejecting duplicates
+
         for idx, point in enumerate(points):
             if self.is_full():
                 break
             else:
-                n_accepted += self.append(point)
+                first_stage_has_run = True
+                is_accepted, old_idx = self.append(point, return_idx=True)
+                if is_accepted:
+                    changed_item_idxs = changed_item_idxs.at[idx].set(old_idx)
         else:
             # If we iterated over all points, return the number of added points
-            return n_accepted
+            return (changed_item_idxs >= 0).sum().item()
 
-        # If there still some point:
+        # STAGE 2: If there still some point:
         points = points[idx:]
 
-        acceptances, self.data_ = add_points_to_bag(
+        self.data_, accepted_points_mask2, changed_item_idxs2 = add_points_to_bag(
             xs=points,
             X=self.data_,
             dist=self.dist,
@@ -112,11 +142,40 @@ class OnlineDiversityPicker:
         )
 
         # Update the number of accepted points
-
-        for is_accepted in acceptances:
+        for new_point_idx, (is_accepted, replaced_point_idx) in enumerate(
+            zip(accepted_points_mask2, changed_item_idxs2)
+        ):
             self._update_counters(is_accepted)
+            if is_accepted:
+                label = labels[new_point_idx] if labels else self._create_label()
+                self.labels[replaced_point_idx] = label
 
-        n_accepted += acceptances.sum().item()
+        # STAGE 3: Combine the results of the two stages
+
+        changed_item_idxs = changed_item_idxs.at[idx:].set(changed_item_idxs2)
+
+        if first_stage_has_run:
+            # Some points might have been accepted when the picker was not full and then
+            # replaced by another point. In that case we counted them twice, we need to
+            # decrement the number of accepted points
+
+            # Now `changed_item_idxs` contains changes from both stages
+            n_accepted_on_both_stages = (changed_item_idxs >= 0).sum()
+
+            # Keep only the last unique changes
+            changed_item_idxs = keep_last_changes(changed_item_idxs)
+
+            # We can't accept more points than the number of points we need to pick
+            n_could_be_accepted = min(self.n_points, n_accepted_on_both_stages)
+
+            # Calculate the number of extra accepted points
+            n_extra_accepted = n_accepted_on_both_stages - n_could_be_accepted
+
+            # Decrease the number of accepted points
+            self.n_accepted -= n_extra_accepted.item()
+
+        accepted_points_mask = changed_item_idxs >= 0
+        n_accepted = accepted_points_mask.sum().item()
 
         return n_accepted
 
@@ -135,13 +194,19 @@ class OnlineDiversityPicker:
         """
         return self.n_seen - self.n_accepted
 
+    def size(self) -> int:
+        """
+        Return the number of points in the picker.
+        """
+        return self.data_.shape[0]
+
     def is_full(self) -> bool:
         """
         Return whether the picker is full or not.
         """
         if self.is_empty():
             return False
-        return self.data_.shape[0] >= self.n_points
+        return self.size() >= self.n_points
 
     def is_empty(self) -> bool:
         """
@@ -149,17 +214,11 @@ class OnlineDiversityPicker:
         """
         return self.data_ is None
 
-    def online(self, stream: Iterable, batch_size: int = 100) -> None:
-        """
-        Add points from a stream to the picker.
-        """
-        pass
-
     def labels(self) -> list:
         """
         Return the currently picked labels.
         """
-        pass
+        return self.labels
 
     @property
     def points(self) -> list:
