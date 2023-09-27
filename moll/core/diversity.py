@@ -31,21 +31,24 @@ class OnlineDiversityPicker:
         self.n_seen: int = 0
         self.n_accepted: int = 0
 
-    def _fill_if_not_full(self, point: jnp.ndarray) -> bool:
+    def _fill_if_not_full(self, point: jnp.ndarray) -> (bool, int):
         """
         Add point if pickier is not filed yet.
         """
 
+        idx = None
+
         # If it's a first point, just add it
         if self.is_empty():
             self.data_ = jnp.array([point])
-            return True
+            return True, 0
 
         # If it's not a first point, check if it's already in the bag
         if is_accepted := not is_in_bag(point, self.data_):
             self.data_ = jnp.vstack([self.data_, point])
+            idx = len(self.data_) - 1
 
-        return is_accepted
+        return is_accepted, idx
 
     def _create_label(self) -> int:
         """
@@ -72,11 +75,9 @@ class OnlineDiversityPicker:
         Add a point to the picker.
         """
 
-        old_idx = None
-
         # If we haven't seen enough points, just add the point to the data rejecting duplicates
         if not self.is_full():
-            is_accepted = self._fill_if_not_full(point)
+            is_accepted, old_idx = self._fill_if_not_full(point)
         else:
             # If we have seen enough points, decide whether to add the point or not
             self.data_, is_accepted, old_idx = add_point_to_bag(
@@ -121,7 +122,6 @@ class OnlineDiversityPicker:
             points, labels = zip(*pairs)
 
         changed_item_idxs = -jnp.ones(len(points), dtype=int)
-        first_stage_has_run = False
 
         # STAGE 1: If we haven't seen enough points, just add the points to the data rejecting duplicates
 
@@ -129,7 +129,6 @@ class OnlineDiversityPicker:
             if self.is_full():
                 break
             else:
-                first_stage_has_run = True
                 is_accepted, old_idx = self.append(point, return_idx=True)
                 if is_accepted:
                     changed_item_idxs = changed_item_idxs.at[idx].set(old_idx)
@@ -159,7 +158,8 @@ class OnlineDiversityPicker:
 
         changed_item_idxs = changed_item_idxs.at[idx:].set(changed_item_idxs2)
 
-        if first_stage_has_run:
+        # If during the first stage some points were added
+        if (changed_item_idxs[:idx] >= 0).any():
             # Some points might have been accepted when the picker was not full and then
             # replaced by another point. In that case we counted them twice, we need to
             # decrement the number of accepted points
@@ -169,9 +169,10 @@ class OnlineDiversityPicker:
 
             # Keep only the last unique changes
             changed_item_idxs = keep_last_changes(changed_item_idxs)
+            n_unique_changes = (changed_item_idxs >= 0).sum()
 
             # We can't accept more points than the number of points we need to pick
-            n_could_be_accepted = min(self.n_points, n_accepted_on_both_stages)
+            n_could_be_accepted = min(self.n_points, n_unique_changes)
 
             # Calculate the number of extra accepted points
             n_extra_accepted = n_accepted_on_both_stages - n_could_be_accepted
