@@ -53,10 +53,26 @@ class OnlineDiversityPicker:
         """
         return self.n_seen
 
+    def _add_label_for_accepted_point(self, label, idx) -> None:
+        """
+        Add a label to the picker.
+        """
+
+        label = label or self._create_label()
+
+        assert label not in self.labels, f"Label `{label}` is already in the picker"
+
+        if (idx is None) or (idx == len(self.labels)):
+            self.labels.append(label)
+        else:
+            self.labels[idx] = label
+
     def append(self, point, label=None, return_idx=False) -> bool:
         """
         Add a point to the picker.
         """
+
+        old_idx = None
 
         # If we haven't seen enough points, just add the point to the data rejecting duplicates
         if not self.is_full():
@@ -71,19 +87,10 @@ class OnlineDiversityPicker:
                 threshold=self.threshold,
             )
 
-            old_idx = None if old_idx >= 0 else old_idx
+            old_idx = None if old_idx < 0 else old_idx
 
         # Update the number of viewed points
-        self._update_counters(is_accepted)
-        old_idx = self.n_accepted - 1
-
-        # If the point was accepted, add the label
-        if is_accepted:
-            label = label or self._create_label()
-            if old_idx < len(self.labels):
-                self.labels[old_idx] = label
-            else:
-                self.labels.append(label)
+        self._update_counters(is_accepted, label, old_idx)
 
         # Return whether the point was accepted or not
         if return_idx:
@@ -145,10 +152,8 @@ class OnlineDiversityPicker:
         for new_point_idx, (is_accepted, replaced_point_idx) in enumerate(
             zip(accepted_points_mask2, changed_item_idxs2)
         ):
-            self._update_counters(is_accepted)
-            if is_accepted:
-                label = labels[new_point_idx] if labels else self._create_label()
-                self.labels[replaced_point_idx] = label
+            label = labels and labels[new_point_idx]
+            self._update_counters(is_accepted, label, replaced_point_idx)
 
         # STAGE 3: Combine the results of the two stages
 
@@ -179,12 +184,13 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def _update_counters(self, is_accepted: bool):
+    def _update_counters(self, is_accepted: bool, label=None, label_idx=None):
         """
         Update the counters.
         """
         if is_accepted:
             self.n_accepted += 1
+            self._add_label_for_accepted_point(label, label_idx)
         self.n_seen += 1
 
     @property
