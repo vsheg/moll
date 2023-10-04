@@ -129,7 +129,8 @@ class OnlineDiversityPicker:
             if self.is_full():
                 break
             else:
-                is_accepted, old_idx = self.append(point, return_idx=True)
+                label = labels and labels[idx]
+                is_accepted, old_idx = self.append(point, label=label, return_idx=True)
                 if is_accepted:
                     changed_item_idxs = changed_item_idxs.at[idx].set(old_idx)
         else:
@@ -149,7 +150,7 @@ class OnlineDiversityPicker:
 
         # Update the number of accepted points
         for new_point_idx, (is_accepted, replaced_point_idx) in enumerate(
-            zip(accepted_points_mask2, changed_item_idxs2)
+            zip(accepted_points_mask2, changed_item_idxs2), start=idx
         ):
             label = labels and labels[new_point_idx]
             self._update_counters(is_accepted, label, replaced_point_idx)
