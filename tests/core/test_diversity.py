@@ -1,7 +1,6 @@
 import itertools
 import uuid
-from random import sample, shuffle
-from time import time
+from random import shuffle
 
 import jax
 import jax.numpy as jnp
@@ -9,7 +8,9 @@ import pytest
 
 from moll.core.distance import euclidean
 from moll.core.diversity import OnlineDiversityPicker
-from moll.core.utils import generate_points, partition
+from moll.core.utils import generate_points, random_grid_points
+
+RANDOM_SEED = 42
 
 
 @pytest.fixture
@@ -50,40 +51,44 @@ def test_append_many(picker5: OnlineDiversityPicker):
 
 
 @pytest.fixture(
-    params=[3, 5],  # picker sizes
+    params=[3, 6, 13],  # picker sizes
 )
 def picker(request):
     """
     Return a picker with a different number of points.
     """
-    return OnlineDiversityPicker(n_points=request.param, dist=euclidean)
+    return OnlineDiversityPicker(
+        n_points=request.param,
+        dist=euclidean,
+        n_neighbors=request.param,  # TODO
+    )
 
 
 @pytest.fixture(
-    params=[2, 3],  # dimentions
+    params=[2, 3, 4],  # dimentions
 )
-def centers(picker, request):
+def centers(picker, request, seed=RANDOM_SEED, n_ticks=5):
     """
     Generate random cluster centers.
     """
     n_centers = picker.n_points
     dim = request.param
 
-    # generate all possible centers in the grid of size = 2 * `dim` + 1
-    grid = range(-dim, dim + 1)
-    grid_points = itertools.product(grid, repeat=dim)
-    random_grid_points = sample(list(grid_points), k=n_centers)
-    centers = jnp.array(random_grid_points)
-
-    # TODO: do not generate all possible grid points, just sample
+    centers = random_grid_points(
+        n_points=n_centers,
+        dim=dim,
+        n_ticks=n_ticks,
+        seed=seed,
+        spacing=10,
+    )
 
     return centers
 
 
 @pytest.fixture(
-    params=[[10, 10], [1, 1000]],  # smallest and biggest cluster sizes
+    params=[[3, 3], [10, 1000]],  # smallest and biggest cluster sizes
 )
-def points(centers, request, seed=42):
+def centers_and_points(centers, request, seed=RANDOM_SEED):
     """
     Generate random points around cluster centers.
     """
@@ -91,16 +96,17 @@ def points(centers, request, seed=42):
     smallest, biggest = request.param
 
     sizes = jnp.linspace(smallest, biggest, num=len(centers), dtype=int)
-    return generate_points(centers, sizes=sizes, radius=1, seed=seed)
+    return centers, generate_points(centers, sizes=sizes, radius=1, seed=seed)
 
 
 @pytest.fixture(
     params=[True, False],  # whether to generate labels or not
 )
-def labels(points, request):
+def labels(centers_and_points, request):
     """
     Generate random labels for points.
     """
+    _, points = centers_and_points
     if request.param:
         return [str(uuid.uuid4()) for _ in range(len(points))]
     return None
@@ -113,7 +119,9 @@ def n_batches(request):
     return request.param
 
 
-def test_append(picker, points, labels, centers):
+def test_append_many(picker, centers_and_points, labels):
+    centers, points = centers_and_points
+
     assert picker.is_empty() == True
 
     # If labels are not provided, generate a placeholder for zip
@@ -144,10 +152,14 @@ def test_append(picker, points, labels, centers):
 
     # Check if at least one point from each cluster is selected
     for center in centers:
-        assert (jnp.abs(center - selected_points) <= 1).any()
+        assert jax.vmap(jnp.linalg.norm)(selected_points - center).min() <= jnp.sqrt(
+            picker.dim
+        )
 
 
-def test_extend(picker, centers, points, labels, n_batches):
+def test_extend(picker, centers_and_points, labels, n_batches):
+    centers, points = centers_and_points
+
     assert picker.is_empty() == True
 
     batches = jnp.array_split(points, n_batches)
@@ -158,16 +170,11 @@ def test_extend(picker, centers, points, labels, n_batches):
     for batch in batches:
         if labels:
             batch_size = len(batch)
-            print("next_label_to_take_idx:", next_label_to_take_idx)
             label_batch = labels[
                 next_label_to_take_idx : next_label_to_take_idx + batch_size
             ]
             next_label_to_take_idx += batch_size
-            print("labels:", labels)
-            print("label_batch", label_batch)
-            print("picker.labels", picker.labels)
             n_accepted = picker.extend(batch, labels=label_batch)
-            print("here!")
         else:
             n_accepted = picker.extend(batch)
 
@@ -185,7 +192,9 @@ def test_extend(picker, centers, points, labels, n_batches):
 
     # Check if at least one point from each cluster is selected
     for center in centers:
-        assert (jnp.abs(center - selected_points) <= 1).any()
+        assert jax.vmap(jnp.linalg.norm)(selected_points - center).min() <= jnp.sqrt(
+            picker.dim
+        )
 
 
 def test_extend_same_points(picker5: OnlineDiversityPicker):

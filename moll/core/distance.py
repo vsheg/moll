@@ -52,13 +52,67 @@ def _one_to_many_dists(x: jnp.ndarray, X: jnp.ndarray, dist: callable) -> jnp.nd
 one_to_many_dists = jax.jit(_one_to_many_dists, static_argnames="dist")
 
 
+def pairwise_distances(X, dist_fn):
+    """Compute pairwise distances between points in X using a custom distance function."""
+    N = X.shape[0]
+
+    # Create a function to compute distances from one point to all other points
+    def single_point_distances(x):
+        return jax.vmap(lambda y: dist_fn(x, y))(X)
+
+    # Use vmap to compute pairwise distances for all points
+    distances = jax.vmap(single_point_distances)(X)
+
+    return distances
+
+
+def submatrix(X: jnp.ndarray, remove_row: int, remove_col: int) -> jnp.ndarray:
+    """
+    Returns a submatrix of `X` removing the specified row and column.
+    """
+    return jnp.delete(
+        jnp.delete(X, remove_row, axis=0, assume_unique_indices=True),
+        remove_col,
+        axis=1,
+        assume_unique_indices=True,
+    )
+
+
+def find_nasty_point(X: jnp.ndarray, dist_fn: callable, potential_fn: callable) -> int:
+    """
+    Find a point in `X` removing which would decrease the total potential the most.
+    """
+
+    dists = pairwise_distances(X, dist_fn)
+    potentials = jax.vmap(potential_fn)(dists) / 2  # divide by 2 because of symmetry
+    potentials = jnp.nan_to_num(
+        potentials, posinf=0
+    )  # replace diagonal elements with 0
+    total_potential = potentials.sum()
+
+    # Drop each point and compute the total potential without it
+    def body_fun(i):
+        return submatrix(potentials, remove_row=i, remove_col=i).sum()
+
+    total_potentials_without_each_point = jax.vmap(body_fun)(jnp.arange(X.shape[0]))
+
+    # Compute the decrease in the total potential
+    deltas = total_potentials_without_each_point - total_potential
+
+    # Find the point that would decrease the total potential the most (deltas are negative)
+    nasty_point_idx = deltas.argmin()
+
+    return nasty_point_idx
+
+
 def _add_point_to_bag(
     x: jnp.ndarray,
     X: jnp.ndarray,
     dist: callable,
     n_neighbors: int,
     threshold: float = 0.0,
-    approx_min_k: bool = True,
+    approx_min: bool = True,
+    power: float = -2,
 ) -> (jnp.ndarray, bool, int):
     """
     Adds one point to the bag, return the acceptance flag, the updated bag and the index of the replaced point (or -1
@@ -75,56 +129,48 @@ def _add_point_to_bag(
 
         # Find closest points in `X` to `x`
         # TODO: test approx_min_k vs argpartition
-        if approx_min_k:
+        if approx_min:
             k_closest_points_dists, k_closest_points_indices = lax.approx_min_k(
                 dists_from_x_to_X, k=k_neigbour
             )
         else:
-            k_closest_points_indices = jnp.argpartition(dists_from_x_to_X, k_neigbour)[
-                :k_neigbour
-            ]
-            k_closest_points_dists = dists_from_x_to_X[k_closest_points_indices]
+            k_closest_points_dists, k_closest_points_indices = lax.top_k(
+                -dists_from_x_to_X, k_neigbour
+            )
+            k_closest_points_dists = -k_closest_points_dists
 
-        # Closest point:
-        c_index = k_closest_points_indices[0]
-        c = X[c_index]
+        # Define a neighborhood of `x`
+        N = jnp.concatenate((jnp.array([x]), X[k_closest_points_indices]))
 
-        # Rest of the neighbours:
-        rest_neighbours_indices = k_closest_points_indices[1:]
-        N = X[rest_neighbours_indices]
+        # Find a point in `N` removing which would decrease the total potential the most
+        nasty_point_local_idx = find_nasty_point(N, dist, lambda d: jnp.power(d, power))
 
-        # Check that if we replace `c` with `x`, the distance to the rest of the points will increase
-        repultion_x_to_rest_neighbours = jnp.power(k_closest_points_dists[1:], -2).sum()
-        repultion_from_c_to_rest_neighbours = jnp.power(
-            jax.vmap(dist, in_axes=(None, 0))(c, N), -2
-        ).sum()
-
-        is_accepted = (
-            repultion_x_to_rest_neighbours < repultion_from_c_to_rest_neighbours
-        )
+        # If the nasty point is not `x`, replace it with `x`
+        is_accepted = nasty_point_local_idx > 0
+        replace_idx = k_closest_points_indices[nasty_point_local_idx - 1]
 
         X = lax.cond(
             is_accepted,
-            lambda X: X.at[c_index].set(x),
+            lambda X: X.at[replace_idx].set(x),
             lambda X: X,
             X,
         )
 
-        return X, is_accepted, c_index
+        return X, is_accepted, k_closest_points_indices[nasty_point_local_idx - 1]
 
-    X, is_accepted, c_index = lax.cond(
+    X, is_accepted, replace_idx = lax.cond(
         dists_from_x_to_X.min() > threshold,
         above_threshold,
         below_threshold,
         X,
     )
 
-    return X, is_accepted, c_index
+    return X, is_accepted, replace_idx
 
 
 add_point_to_bag = jax.jit(
     _add_point_to_bag,
-    static_argnames=["dist", "n_neighbors", "threshold"],
+    static_argnames=["dist", "n_neighbors", "threshold", "approx_min"],
 )
 
 

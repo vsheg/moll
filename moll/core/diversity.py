@@ -17,7 +17,7 @@ class OnlineDiversityPicker:
         self,
         n_points: int,
         dist: callable,
-        n_neighbors: int = 3,
+        n_neighbors: int = 4,
         threshold: float = 0.0,
     ):
         self.n_points: int = n_points
