@@ -3,6 +3,7 @@ name: Release package to PyPI
 on:
   push:
     branches: [main]
+  release:
 
 jobs:
   build:

@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "moll"
-version = "0.1.2"
+version = "0.1.4"
 description = ""
-authors = ["Vsevolod O. Shegolev <v@sheg.cc>"]
+authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
