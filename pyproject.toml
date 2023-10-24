@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "moll"
-version = "0.1.4"
+version = "0.1.5"
 description = ""
 authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
@@ -14,14 +14,34 @@ tqdm = "^4.66.1"
 black = "^23.3.0"
 pylint = "^2.17.4"
 pytest = "^7.3.2"
-jax = "^0.4.14"
-jaxlib = "^0.4.14"
+jax = "^0.4.12"
+jaxlib = {version = "^0.4.12", source = "jax_cpu"}
 rdkit = "^2023.3.1"
 ipykernel = "^6.25.2"
 ipython = "^8.15.0"
 autopep8 = "^2.0.4"
 rich = "^13.5.3"
+pytest-xdist = "^3.3.1"
+
+[[tool.poetry.source]]
+name = "jax_cpu"
+url = "https://storage.googleapis.com/jax-releases/jax_releases.html"
+priority = "primary"
+
+
+[[tool.poetry.source]]
+name = "jax_cuda"
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+priority = "primary"
+
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts="-n auto"

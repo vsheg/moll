@@ -52,67 +52,162 @@ def _one_to_many_dists(x: jnp.ndarray, X: jnp.ndarray, dist: callable) -> jnp.nd
 one_to_many_dists = jax.jit(_one_to_many_dists, static_argnames="dist")
 
 
-def _add_one_point_to_the_bag(
+def pairwise_distances(X, dist_fn):
+    """Compute pairwise distances between points in X using a custom distance function."""
+    N = X.shape[0]
+
+    # Create a function to compute distances from one point to all other points
+    def single_point_distances(x):
+        return jax.vmap(lambda y: dist_fn(x, y))(X)
+
+    # Use vmap to compute pairwise distances for all points
+    distances = jax.vmap(single_point_distances)(X)
+
+    return distances
+
+
+def submatrix(X: jnp.ndarray, remove_row: int, remove_col: int) -> jnp.ndarray:
+    """
+    Returns a submatrix of `X` removing the specified row and column.
+    """
+    return jnp.delete(
+        jnp.delete(X, remove_row, axis=0, assume_unique_indices=True),
+        remove_col,
+        axis=1,
+        assume_unique_indices=True,
+    )
+
+
+def find_nasty_point(X: jnp.ndarray, dist_fn: callable, potential_fn: callable) -> int:
+    """
+    Find a point in `X` removing which would decrease the total potential the most.
+    """
+
+    dists = pairwise_distances(X, dist_fn)
+    potentials = jax.vmap(potential_fn)(dists) / 2  # divide by 2 because of symmetry
+    potentials = jnp.nan_to_num(
+        potentials, posinf=0
+    )  # replace diagonal elements with 0
+    total_potential = potentials.sum()
+
+    # Drop each point and compute the total potential without it
+    def body_fun(i):
+        return submatrix(potentials, remove_row=i, remove_col=i).sum()
+
+    total_potentials_without_each_point = jax.vmap(body_fun)(jnp.arange(X.shape[0]))
+
+    # Compute the decrease in the total potential
+    deltas = total_potentials_without_each_point - total_potential
+
+    # Find the point that would decrease the total potential the most (deltas are negative)
+    nasty_point_idx = deltas.argmin()
+
+    return nasty_point_idx
+
+
+def _add_point_to_bag(
     x: jnp.ndarray,
     X: jnp.ndarray,
     dist: callable,
     n_neighbors: int,
     threshold: float = 0.0,
-) -> (bool, jnp.ndarray):
+    approx_min: bool = True,
+    power: float = -2,
+) -> (jnp.ndarray, bool, int):
+    """
+    Adds one point to the bag, return the acceptance flag, the updated bag and the index of the replaced point (or -1
+    if no point was replaced).
+    """
     dists_from_x_to_X = _one_to_many_dists(x, X, dist)
 
     def below_threshold(X):
-        return False, X
+        return X, False, -1
 
     def above_threshold(X):
         # If there are less points in `X` than `n_neighbors`, use all points in `X`
         k_neigbour = min(n_neighbors, len(X))
 
         # Find closest points in `X` to `x`
-        k_closest_points_dists, k_closest_points_indices = lax.approx_min_k(
-            dists_from_x_to_X, k=k_neigbour
-        )
+        # TODO: test approx_min_k vs argpartition
+        if approx_min:
+            k_closest_points_dists, k_closest_points_indices = lax.approx_min_k(
+                dists_from_x_to_X, k=k_neigbour
+            )
+        else:
+            k_closest_points_dists, k_closest_points_indices = lax.top_k(
+                -dists_from_x_to_X, k_neigbour
+            )
+            k_closest_points_dists = -k_closest_points_dists
 
-        # Closest point:
-        c_index = k_closest_points_indices[0]
-        c = X[c_index]
+        # Define a neighborhood of `x`
+        N = jnp.concatenate((jnp.array([x]), X[k_closest_points_indices]))
 
-        # Rest of the neighbours:
-        rest_neighbours_indices = k_closest_points_indices[1:]
-        N = X[rest_neighbours_indices]
+        # Find a point in `N` removing which would decrease the total potential the most
+        nasty_point_local_idx = find_nasty_point(N, dist, lambda d: jnp.power(d, power))
 
-        # Check that if we replace `c` with `x`, the distance to the rest of the points will increase
-        repultion_x_to_rest_neighbours = jnp.power(k_closest_points_dists[1:], -3).sum()
-        repultion_from_c_to_rest_neighbours = jnp.power(
-            jax.vmap(dist, in_axes=(None, 0))(c, N), -3
-        ).sum()
-
-        is_accepted = (
-            repultion_x_to_rest_neighbours < repultion_from_c_to_rest_neighbours
-        )
+        # If the nasty point is not `x`, replace it with `x`
+        is_accepted = nasty_point_local_idx > 0
+        replace_idx = k_closest_points_indices[nasty_point_local_idx - 1]
 
         X = lax.cond(
             is_accepted,
-            lambda _: X.at[c_index].set(x),
-            lambda _: X,
-            None,
+            lambda X: X.at[replace_idx].set(x),
+            lambda X: X,
+            X,
         )
 
-        return is_accepted, X
+        return X, is_accepted, k_closest_points_indices[nasty_point_local_idx - 1]
 
-    is_accepted, X = lax.cond(
+    X, is_accepted, replace_idx = lax.cond(
         dists_from_x_to_X.min() > threshold,
         above_threshold,
         below_threshold,
         X,
     )
 
-    return is_accepted, X
+    return X, is_accepted, replace_idx
 
 
-add_one_point_to_the_bag = jax.jit(
-    _add_one_point_to_the_bag, static_argnames=["dist", "n_neighbors", "threshold"]
+add_point_to_bag = jax.jit(
+    _add_point_to_bag,
+    static_argnames=["dist", "n_neighbors", "threshold", "approx_min"],
 )
+
+
+def _keep_last_changes(changes: jnp.ndarray) -> jnp.ndarray:
+    """
+    Given an array where each element represents whether a change occurred or
+    not, -1 means no change, and a positive integer represents ID of changed
+    object in some DB, return an array where only the last occurrence of each
+    change is kept.
+
+    Example:
+    [ -1,  0,  2,  1,  1,  2,  2,  -1] <- identify unique changes
+    [      0           1       2     ] <- only last changes are kept, -1s are ignored
+    [ -1,  0, -1, -1,  1, -1,  2,  -1] <- all other elements are set to -1
+    """
+    # Take the last occurrence of each change
+    changes_reversed = changes[::-1]
+    unique_changes, unique_idxs = jnp.unique(
+        changes_reversed, return_index=True, size=changes.shape[0]
+    )
+
+    def keep_only_unique_change(i, changes_reversed):
+        return lax.cond(
+            jnp.isin(i, unique_idxs),
+            lambda _: changes_reversed,
+            lambda _: changes_reversed.at[i].set(-1),
+            changes_reversed,
+        )
+
+    changes_reversed = lax.fori_loop(
+        0, changes_reversed.shape[0], keep_only_unique_change, changes_reversed
+    )
+
+    return changes_reversed[::-1]
+
+
+keep_last_changes = jax.jit(_keep_last_changes)
 
 
 def _add_points_to_bag(
@@ -122,21 +217,33 @@ def _add_points_to_bag(
     n_neighbors: int,
     threshold: float,
 ) -> jnp.ndarray:
-    acceptances = jnp.zeros(xs.shape[0], dtype=bool)
+    # Initialize array to store the information about the changes
+    changed_item_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not altered
 
     def body_fun(i, args):
-        acceptances, X = args
-        is_accepted, X_new = _add_one_point_to_the_bag(
+        X, altered_items_idxs = args
+        X_new, _, altered_item_idx = _add_point_to_bag(
             xs[i], X, dist, n_neighbors=n_neighbors, threshold=threshold
         )
-        acceptances = acceptances.at[i].set(is_accepted)
-        return acceptances, X_new
 
-    acceptances, X = lax.fori_loop(0, xs.shape[0], body_fun, (acceptances, X))
+        # Record the index of the replaced point
+        altered_items_idxs = altered_items_idxs.at[i].set(altered_item_idx)
 
-    return acceptances, X
+        return X_new, altered_items_idxs
 
+    X, changed_item_idxs = lax.fori_loop(
+        0, xs.shape[0], body_fun, (X, changed_item_idxs)
+    )
+    # Some points might have been accepted and then replaced by another point
+    changed_item_idxs = _keep_last_changes(changed_item_idxs)
+    accepted_points_mask = changed_item_idxs >= 0
+
+    return X, accepted_points_mask, changed_item_idxs
+
+
+add_points_to_bag = _add_points_to_bag
 
 add_points_to_bag = jax.jit(
-    _add_points_to_bag, static_argnames=["dist", "n_neighbors", "threshold"]
+    _add_points_to_bag,
+    static_argnames=["dist", "n_neighbors", "threshold"],
 )
