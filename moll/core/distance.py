@@ -110,9 +110,9 @@ def _add_point_to_bag(
     X: jnp.ndarray,
     dist: callable,
     n_neighbors: int,
+    power: float,
     threshold: float = 0.0,
     approx_min: bool = True,
-    power: float = -2,
 ) -> (jnp.ndarray, bool, int):
     """
     Adds one point to the bag, return the acceptance flag, the updated bag and the index of the replaced point (or -1
@@ -143,7 +143,9 @@ def _add_point_to_bag(
         N = jnp.concatenate((jnp.array([x]), X[k_closest_points_indices]))
 
         # Find a point in `N` removing which would decrease the total potential the most
-        nasty_point_local_idx = find_nasty_point(N, dist, lambda d: jnp.power(d, power))
+        nasty_point_local_idx = find_nasty_point(
+            N, dist, lambda d: jnp.power(d, -power)
+        )
 
         # If the nasty point is not `x`, replace it with `x`
         is_accepted = nasty_point_local_idx > 0
@@ -170,7 +172,7 @@ def _add_point_to_bag(
 
 add_point_to_bag = jax.jit(
     _add_point_to_bag,
-    static_argnames=["dist", "n_neighbors", "threshold", "approx_min"],
+    static_argnames=["dist", "n_neighbors", "threshold", "power", "approx_min"],
 )
 
 
@@ -216,6 +218,7 @@ def _add_points_to_bag(
     dist: callable,
     n_neighbors: int,
     threshold: float,
+    power: float,
 ) -> jnp.ndarray:
     # Initialize array to store the information about the changes
     changed_item_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not altered
@@ -223,7 +226,7 @@ def _add_points_to_bag(
     def body_fun(i, args):
         X, altered_items_idxs = args
         X_new, _, altered_item_idx = _add_point_to_bag(
-            xs[i], X, dist, n_neighbors=n_neighbors, threshold=threshold
+            xs[i], X, dist, n_neighbors=n_neighbors, threshold=threshold, power=power
         )
 
         # Record the index of the replaced point
@@ -241,9 +244,7 @@ def _add_points_to_bag(
     return X, accepted_points_mask, changed_item_idxs
 
 
-add_points_to_bag = _add_points_to_bag
-
 add_points_to_bag = jax.jit(
     _add_points_to_bag,
-    static_argnames=["dist", "n_neighbors", "threshold"],
+    static_argnames=["dist", "n_neighbors", "power", "threshold"],
 )
