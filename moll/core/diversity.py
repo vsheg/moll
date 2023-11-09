@@ -17,12 +17,14 @@ class OnlineDiversityPicker:
         self,
         n_points: int,
         dist: callable,
-        n_neighbors: int = 4,
+        n_neighbors: int = 5,
+        p: float = 1.0,
         threshold: float = 0.0,
     ):
         self.n_points: int = n_points
         self.dist = dist
         self.n_neighbors = n_neighbors
+        self.p = p
         self.threshold = threshold
 
         self.data_ = None
@@ -86,6 +88,7 @@ class OnlineDiversityPicker:
                 dist=self.dist,
                 n_neighbors=self.n_neighbors,
                 threshold=self.threshold,
+                power=self.p,
             )
 
             old_idx = None if old_idx < 0 else old_idx
@@ -145,6 +148,7 @@ class OnlineDiversityPicker:
             X=self.data_,
             dist=self.dist,
             n_neighbors=self.n_neighbors,
+            power=self.p,
             threshold=self.threshold,
         )
 
