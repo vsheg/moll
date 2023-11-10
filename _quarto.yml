@@ -1,0 +1,21 @@
+project:
+  type: website
+  output-dir: "docs"
+  render: 
+    - README.md
+    - notebooks/*.ipynb
+
+website:
+  title: "moll docs"
+  page-navigation: true
+  sidebar:
+    contents:
+      - README.md
+      - notebooks/diversity.ipynb
+    tools:
+        - icon: github
+          url:  https://github.com/vsheg/moll
+
+format:
+  html:
+    toc: true

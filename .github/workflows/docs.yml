@@ -1,0 +1,38 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: main
+
+name: docs
+
+env:
+  POETRY_VERSION: "1.6.1"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  
+  render:
+    # setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: quarto-dev/quarto-actions/setup@v2
+      - run: quarto render
+      - uses: actions/upload-pages-artifact@v2
+        with:
+          name: github-pages
+          path: docs/
+  
+  deploy:
+    needs: render
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/deploy-pages@v2
+        id: deployment
+        
