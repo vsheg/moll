@@ -6,22 +6,26 @@ authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.13"
 seaborn = "^0.12.2"
 tqdm = "^4.66.1"
+papermill = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pylint = "^2.17.4"
 pytest = "^7.3.2"
-jax = "^0.4.12"
-jaxlib = {version = "^0.4.12", source = "jax_cpu"}
+jax = "^0.4.20"
+jaxlib = {version = "^0.4.20", source = "jax_cpu"}
 rdkit = "^2023.3.1"
 ipykernel = "^6.25.2"
 ipython = "^8.15.0"
 autopep8 = "^2.0.4"
 rich = "^13.5.3"
 pytest-xdist = "^3.3.1"
+ipywidgets = "^8.1.1"
+scikit-learn = "^1.3.2"
+jupyter = "^1.0.0"
 
 [[tool.poetry.source]]
 name = "jax_cpu"
