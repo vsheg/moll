@@ -26,4 +26,4 @@
 
 ## How to use
 
-See examples in `notebooks/` directory.
+Check [docs](https://vsheg.github.io/moll/) or see examples in `notebooks/` directory in the [repo](https://github.com/vsheg/moll).
