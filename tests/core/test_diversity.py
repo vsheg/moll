@@ -1,10 +1,12 @@
 import itertools
 import uuid
+from collections import Counter
 from random import shuffle
 
 import jax
 import jax.numpy as jnp
 import pytest
+from sklearn import datasets
 
 from moll.core.distance import euclidean
 from moll.core.diversity import OnlineDiversityPicker
@@ -15,14 +17,14 @@ RANDOM_SEED = 42
 
 @pytest.fixture
 def picker5():
-    return OnlineDiversityPicker(n_points=5, dist=euclidean)
+    return OnlineDiversityPicker(capacity=5, dist_fn=euclidean)
 
 
 # Test that the picker API works as expected
 
 
 def test_initialization(picker5: OnlineDiversityPicker):
-    assert picker5.n_points == 5
+    assert picker5.capacity == 5
     assert picker5.dim is None
 
 
@@ -31,8 +33,8 @@ def test_append(picker5: OnlineDiversityPicker):
     picker5.append(jnp.array(v))
     assert picker5.n_seen == 1
     assert picker5.n_accepted == 1
-    assert picker5.data_.shape == (1, 3)
-    assert picker5.data_[0].tolist() == v
+    assert picker5._data.shape == (1, 3)
+    assert picker5._data[0].tolist() == v
 
 
 def test_append_many(picker5: OnlineDiversityPicker):
@@ -43,8 +45,8 @@ def test_append_many(picker5: OnlineDiversityPicker):
     assert picker5.is_empty() == False
     assert picker5.is_full() == False
     assert picker5.n_accepted == 1
-    assert picker5.data_.shape == (1, 3)
-    assert picker5.data_[0].tolist() == v
+    assert picker5._data.shape == (1, 3)
+    assert picker5._data[0].tolist() == v
 
 
 # Test that the picker returns the most distant points
@@ -58,9 +60,9 @@ def picker(request):
     Return a picker with a different number of points.
     """
     return OnlineDiversityPicker(
-        n_points=request.param,
-        dist=euclidean,
-        n_neighbors=request.param,  # TODO
+        capacity=request.param,
+        dist_fn=euclidean,
+        k_neighbors=request.param,  # TODO
     )
 
 
@@ -71,7 +73,7 @@ def centers(picker, request, seed=RANDOM_SEED, n_ticks=5):
     """
     Generate random cluster centers.
     """
-    n_centers = picker.n_points
+    n_centers = picker.capacity
     dim = request.param
 
     centers = random_grid_points(
@@ -146,8 +148,8 @@ def test_append_many(picker, centers_and_points, labels):
 
     # Check labels
     if labels:
-        assert len(picker.labels) == picker.n_points
-        assert len(set(picker.labels)) == picker.n_points
+        assert len(picker.labels) == picker.capacity
+        assert len(set(picker.labels)) == picker.capacity
         assert set(picker.labels).issubset(set(labels))
 
     # Check if at least one point from each cluster is selected
@@ -179,7 +181,7 @@ def test_extend(picker, centers_and_points, labels, n_batches):
             n_accepted = picker.extend(batch)
 
         assert n_accepted >= 0
-        assert n_accepted <= picker.n_points
+        assert n_accepted <= picker.capacity
         n_accepted_total += n_accepted
 
     selected_points = picker.points
@@ -218,4 +220,41 @@ def test_extend_same_points(picker5: OnlineDiversityPicker):
     assert picker5.n_accepted == 3
     assert picker5.n_rejected == 9
     assert picker5.points.shape == (3, 3)
-    assert len(picker5.labels) == n_accepted
+    assert len(picker5._labels) == n_accepted
+
+
+def test_labels_append(picker5: OnlineDiversityPicker):
+    # Generate 2 circles: a small one and a large one.
+    # Points in the small circle are not favorable because of repulsion.
+    # Test that most labels are assigned to the large circle.
+
+    points, tags = datasets.make_circles(factor=0.1, random_state=42)
+    labels = [f"{tag}-{i}" for i, tag in enumerate(tags)]
+
+    for point, label in zip(points, labels):
+        picker5.append(point, label=label)
+
+    tags_picked = [int(label.rstrip()[0]) for label in picker5.labels]
+    tags_count = Counter(tags_picked)
+
+    assert tags_count[0] >= 4  # large circle
+    assert tags_count[1] <= 1  # small circle
+
+
+def test_partial_fit(picker5: OnlineDiversityPicker):
+    # Generate 2 circles: a small one and a large one.
+    # Points in the small circle are not favorable because of repulsion.
+    # Test that most labels are assigned to the large circle.
+
+    points, tags = datasets.make_circles(
+        factor=0.1, random_state=42, n_samples=10
+    )  # TODO
+    labels = [f"{tag}-{i}" for i, tag in enumerate(tags)]
+
+    n_accepted = picker5.partial_fit(points, labels=labels)
+
+    tags_picked = [int(label.rstrip()[0]) for label in picker5.labels]
+    tags_count = Counter(tags_picked)
+
+    assert tags_count[0] >= 4  # large circle
+    assert tags_count[1] <= 1  # small circle

@@ -2,12 +2,7 @@ from typing import Iterable
 
 import jax.numpy as jnp
 
-from moll.core.distance import (
-    add_point_to_bag,
-    add_points_to_bag,
-    is_in_bag,
-    keep_last_changes,
-)
+from moll.core.distance import add_point_to_bag, add_points_to_bag, is_in_bag
 
 __all__ = ["OnlineDiversityPicker"]
 
@@ -15,23 +10,24 @@ __all__ = ["OnlineDiversityPicker"]
 class OnlineDiversityPicker:
     def __init__(
         self,
-        n_points: int,
-        dist: callable,
-        n_neighbors: int = 5,
+        capacity: int,
+        dist_fn: callable,
+        k_neighbors: int = 5,
         p: float = 1.0,
         threshold: float = 0.0,
     ):
-        self.n_points: int = n_points
-        self.dist = dist
-        self.n_neighbors = n_neighbors
+        self.capacity: int = capacity
+        self.dist_fn = dist_fn
+        self.k_neighbors = k_neighbors
         self.p = p
         self.threshold = threshold
 
-        self.data_ = None
-        self.labels = []
+        self._data: jnp.ndarray | None = None
+        self._labels: list = []
 
         self.n_seen: int = 0
         self.n_accepted: int = 0
+        self.n_valid_points: int = 0
 
     def _fill_if_not_full(self, point: jnp.ndarray) -> (bool, int):
         """
@@ -42,13 +38,13 @@ class OnlineDiversityPicker:
 
         # If it's a first point, just add it
         if self.is_empty():
-            self.data_ = jnp.array([point])
+            self._data = jnp.array([point])
             return True, 0
 
         # If it's not a first point, check if it's already in the bag
-        if is_accepted := not is_in_bag(point, self.data_):
-            self.data_ = jnp.vstack([self.data_, point])
-            idx = len(self.data_) - 1
+        if is_accepted := not is_in_bag(point, self._data):
+            self._data = jnp.vstack([self._data, point])
+            idx = len(self._data) - 1
 
         return is_accepted, idx
 
@@ -65,12 +61,12 @@ class OnlineDiversityPicker:
 
         label = label or self._create_label()
 
-        assert label not in self.labels, f"Label `{label}` is already in the picker"
+        assert label not in self._labels, f"Label `{label}` is already in the picker"
 
-        if (idx is None) or (idx == len(self.labels)):
-            self.labels.append(label)
+        if (idx is None) or (idx == len(self._labels)):
+            self._labels.append(label)
         else:
-            self.labels[idx] = label
+            self._labels[idx] = label
 
     def append(self, point, label=None, return_idx=False) -> bool:
         """
@@ -82,11 +78,11 @@ class OnlineDiversityPicker:
             is_accepted, old_idx = self._fill_if_not_full(point)
         else:
             # If we have seen enough points, decide whether to add the point or not
-            self.data_, is_accepted, old_idx = add_point_to_bag(
+            self._data, is_accepted, old_idx = add_point_to_bag(
                 x=point,
-                X=self.data_,
-                dist=self.dist,
-                n_neighbors=self.n_neighbors,
+                X=self._data,
+                dist_fn=self.dist_fn,
+                k_neighbors=self.k_neighbors,
                 threshold=self.threshold,
                 power=self.p,
             )
@@ -96,97 +92,70 @@ class OnlineDiversityPicker:
         # Update the number of viewed points
         self._update_counters(is_accepted, label, old_idx)
 
+        if (old_idx is not None) and old_idx >= self.n_valid_points:
+            self.n_valid_points += 1
+
         # Return whether the point was accepted or not
         if return_idx:
             return is_accepted, old_idx
         return is_accepted
 
-    def fast_init(self, points: jnp.ndarray) -> None:
-        """
-        Initialize the picker with a batch of points.
-        """
-
-        assert len(points) == self.n_points
-
-        self.data_ = jnp.array(points)
-        self.n_accepted = len(points)
-        self.n_seen = len(points)
-
-    def extend(self, points: jnp.ndarray | list, labels=None, *, pairs=None) -> int:
+    def extend(self, points: jnp.ndarray, labels=None, *, pairs=None) -> int:
         """
         Add a batch of points to the picker.
         """
 
-        assert pairs is None or (
-            points is None and labels is None
-        ), "`pairs` are provided, then `points` and `labels` must be None"
+        # assert pairs is None or (
+        #     points is None and labels is None
+        # ), "`pairs` are provided, then `points` and `labels` must be None"
 
-        if pairs:
-            points, labels = zip(*pairs)
+        if not labels:
+            labels = [None] * len(points)
 
-        changed_item_idxs = -jnp.ones(len(points), dtype=int)
+        batch_size = len(points)
+        n_accepted = 0
+        was_init = False
 
-        # STAGE 1: If we haven't seen enough points, just add the points to the data rejecting duplicates
+        if self.is_empty():
+            # compute dim and init data container, add first point
+            dim = points.shape[1]
+            self._data = jnp.zeros((self.capacity, dim))
+            self._data = self._data.at[0].set(points[0])
 
-        for idx, point in enumerate(points):
-            if self.is_full():
-                break
-            else:
-                label = labels and labels[idx]
-                is_accepted, old_idx = self.append(point, label=label, return_idx=True)
-                if is_accepted:
-                    changed_item_idxs = changed_item_idxs.at[idx].set(old_idx)
-        else:
-            # If we iterated over all points, return the number of added points
-            return (changed_item_idxs >= 0).sum().item()
+            self.n_valid_points += 1
+            was_init = True  # to return correct n_accepted
 
-        # STAGE 2: If there still some point:
-        points = points[idx:]
+            points = points[1:]
+            labels = labels and labels[1:]
 
-        self.data_, accepted_points_mask2, changed_item_idxs2 = add_points_to_bag(
-            xs=points,
-            X=self.data_,
-            dist=self.dist,
-            n_neighbors=self.n_neighbors,
-            power=self.p,
-            threshold=self.threshold,
-        )
+        if points.shape[0] > 0:
+            changed_item_idxs, data_updated, acceptance_mask = add_points_to_bag(
+                X=self._data,
+                xs=points,
+                dist_fn=self.dist_fn,
+                k_neighbors=self.k_neighbors,
+                power=self.p,
+                threshold=self.threshold,
+                n_valid_points=self.n_valid_points,
+            )
 
-        # Update the number of accepted points
-        for new_point_idx, (is_accepted, replaced_point_idx) in enumerate(
-            zip(accepted_points_mask2, changed_item_idxs2), start=idx
-        ):
-            label = labels and labels[new_point_idx]
-            self._update_counters(is_accepted, label, replaced_point_idx)
+            self._data = data_updated
 
-        # STAGE 3: Combine the results of the two stages
+            last_valid_idx = self.n_valid_points - 1
+            n_updated = (
+                ((changed_item_idxs >= 0) & (changed_item_idxs <= last_valid_idx))
+                .sum()
+                .item()
+            )
+            n_appended = (changed_item_idxs > last_valid_idx).sum().item()
+            self.n_valid_points += n_appended
 
-        changed_item_idxs = changed_item_idxs.at[idx:].set(changed_item_idxs2)
+            n_accepted = n_appended + n_updated
 
-        # If during the first stage some points were added
-        if (changed_item_idxs[:idx] >= 0).any():
-            # Some points might have been accepted when the picker was not full and then
-            # replaced by another point. In that case we counted them twice, we need to
-            # decrement the number of accepted points
-
-            # Now `changed_item_idxs` contains changes from both stages
-            n_accepted_on_both_stages = (changed_item_idxs >= 0).sum()
-
-            # Keep only the last unique changes
-            changed_item_idxs = keep_last_changes(changed_item_idxs)
-            n_unique_changes = (changed_item_idxs >= 0).sum()
-
-            # We can't accept more points than the number of points we need to pick
-            n_could_be_accepted = min(self.n_points, n_unique_changes)
-
-            # Calculate the number of extra accepted points
-            n_extra_accepted = n_accepted_on_both_stages - n_could_be_accepted
-
-            # Decrease the number of accepted points
-            self.n_accepted -= n_extra_accepted.item()
-
-        accepted_points_mask = changed_item_idxs >= 0
-        n_accepted = accepted_points_mask.sum().item()
+        n_accepted += was_init
+        n_accepted = min(n_accepted, self.capacity, batch_size)
+        self.n_accepted += n_accepted
+        self.n_seen += batch_size
 
         return n_accepted
 
@@ -210,7 +179,8 @@ class OnlineDiversityPicker:
         """
         Return the number of points in the picker.
         """
-        return self.data_.shape[0]
+        assert self.n_valid_points <= self.capacity
+        return self.n_valid_points
 
     def is_full(self) -> bool:
         """
@@ -218,32 +188,35 @@ class OnlineDiversityPicker:
         """
         if self.is_empty():
             return False
-        return self.size() >= self.n_points
+        # TODO: assert self.n_valid_points <= self.capacity
+        return self.capacity == self.size()
 
     def is_empty(self) -> bool:
         """
         Return whether the picker is empty or not.
         """
-        return self.data_ is None
+        data = self._data
+        return (data is None) or (data.shape[0] == 0)
 
+    @property
     def labels(self) -> list:
         """
         Return the currently picked labels.
         """
-        return self.labels
+        return self._labels
 
     @property
     def points(self) -> list:
         """
         Return the currently picked points.
         """
-        return self.data_
+        return self._data
 
     @property
-    def dim(self) -> int:
+    def dim(self) -> int | None:
         """
         Return the dimension of the points.
         """
-        if self.is_empty():
-            return None
-        return self.data_.shape[1]
+        if (data := self._data) is not None:
+            return data.shape[1]
+        return None

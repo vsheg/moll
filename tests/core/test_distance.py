@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jax import random
+import pytest
 
 from moll.core.distance import euclidean, tanimoto
 
@@ -25,17 +25,3 @@ def test_euclidean():
     p2 = jnp.array([4, 5, 6])
     expected_result = jnp.sqrt(27)
     assert euclidean(p1, p2) == expected_result
-
-
-# # Distances tests
-# def test_distances_single_point():
-#     v = jnp.array([1, 2, 3])
-#     A = jnp.array([[4, 5, 6]])
-#     assert jnp.allclose(distances(v, A), jnp.array([5.196152]))
-
-# def test_distances_multiple_points():
-#     key = random.PRNGKey(0)
-#     v = random.normal(key, (3,))
-#     A = random.normal(key, (10, 3))
-#     expected = jnp.sqrt(jnp.sum((A - v) ** 2, axis=-1))
-#     assert jnp.allclose(distances(v, A), expected)
