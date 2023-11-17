@@ -52,7 +52,7 @@ def test_euclidean():
 
 
 @pytest.mark.parametrize(
-    "input, expected",
+    "array, expected",
     [
         ([-1], [-1]),
         ([2], [2]),
@@ -65,10 +65,10 @@ def test_euclidean():
         ([3, 3, -1, 2, 2, -1, 1], [-1, 3, -1, -1, 2, -1, 1]),
     ],
 )
-def test_finalize_updates(input, expected):
-    input = jnp.array(input)
+def test_finalize_updates(array, expected):
+    array = jnp.array(array)
     expected = jnp.array(expected)
-    output_array = finalize_updates(input)
+    output_array = finalize_updates(array)
     assert jnp.all(output_array == expected)
 
 
@@ -84,7 +84,7 @@ def dummy_potential_fn(dist):
 
 
 @pytest.mark.parametrize(
-    "input, expected",
+    "array, expected",
     [
         ([0, 0.1, 1], 1),
         ([0, 0, 1], 0),
@@ -92,9 +92,9 @@ def dummy_potential_fn(dist):
         ([(0.1, 0.1), (0, 0), (1, 1)], 0),
     ],
 )
-def test_find_needless_point(input, expected):
-    input = jnp.array(input)
-    idx = needless_point_idx(input, euclidean, lambda x: x**-2)
+def test_find_needless_point(array, expected):
+    array = jnp.array(array)
+    idx = needless_point_idx(array, euclidean, lambda x: x**-2)
     assert idx == expected
 
 

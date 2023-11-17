@@ -2,12 +2,16 @@ from typing import Callable
 
 import jax.numpy as jnp
 
-from moll.core.distance import add_point_to_bag, add_points_to_bag, is_in_bag
+from moll.core.distance import add_points_to_bag
 
 __all__ = ["OnlineDiversityPicker"]
 
 
 class OnlineDiversityPicker:
+    """
+    Greedy algorithm for picking a diverse subset of points in an online fashion.
+    """
+
     def __init__(
         self,
         capacity: int,
@@ -65,7 +69,7 @@ class OnlineDiversityPicker:
             labels = labels[1:]
 
         if points.shape[0] > 0:
-            update_idxs, data_updated, acceptance_mask = add_points_to_bag(
+            update_idxs, data_updated, _acceptance_mask = add_points_to_bag(
                 X=self._data,
                 xs=points,
                 dist_fn=self.dist_fn,
