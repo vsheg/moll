@@ -1,5 +1,3 @@
-import itertools
-
 import jax
 import jax.numpy as jnp
 
@@ -77,3 +75,9 @@ def partition(data: list, *, n_partitions: int):
         data[i : i + partition_size] for i in range(0, n_points, partition_size)
     ]
     return partitions
+
+
+def fill_diagonal(array: jnp.ndarray, val: float | int):
+    assert array.ndim >= 2
+    i, j = jnp.diag_indices(min(array.shape[-2:]))
+    return array.at[..., i, j].set(val)

@@ -18,3 +18,7 @@ website:
 format:
   html:
     toc: true
+    grid:
+      sidebar-width: 400px
+      body-width: 1000px
+      margin-width: 300px
