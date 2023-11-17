@@ -29,78 +29,14 @@ class OnlineDiversityPicker:
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
 
-    def _fill_if_not_full(self, point: jnp.ndarray) -> tuple[bool, int]:
-        """
-        Add point if pickier is not filed yet.
-        """
-
-        idx = None
-
-        # If it's a first point, just add it
-        if self.is_empty():
-            self._data = jnp.array([point])
-            return True, 0
-
-        # If it's not a first point, check if it's already in the bag
-        if is_accepted := not is_in_bag(point, self._data):
-            self._data = jnp.vstack([self._data, point])
-            idx = len(self._data) - 1
-
-        return is_accepted, idx
-
-    def _create_label(self) -> int:
-        """
-        Return the next label.
-        """
-        return self.n_seen
-
-    def _add_label_for_accepted_point(self, label, idx) -> None:
-        """
-        Add a label to the picker.
-        """
-
-        label = label or self._create_label()
-
-        assert label not in self._labels, f"Label `{label}` is already in the picker"
-
-        if (idx is None) or (idx == len(self._labels)):
-            self._labels.append(label)
-        else:
-            self._labels[idx] = label
-
-    def append(self, point, label=None, return_idx=False) -> bool:
+    def append(self, point, label=None) -> bool:
         """
         Add a point to the picker.
         """
-
-        # If we haven't seen enough points, just add the point to the data rejecting duplicates
-        if not self.is_full():
-            is_accepted, old_idx = self._fill_if_not_full(point)
-            if is_accepted:
-                self.n_valid_points += 1
-        else:
-            # If we have seen enough points, decide whether to add the point or not
-            self._data, is_accepted, old_idx = add_point_to_bag(
-                x=point,
-                X=self._data,
-                dist_fn=self.dist_fn,
-                k_neighbors=self.k_neighbors,
-                threshold=self.threshold,
-                power=self.p,
-                n_valid_points=self.n_valid_points,
-            )
-
-            old_idx = None if old_idx < 0 else old_idx
-
-        # Update the number of viewed points
-        self._update_counters(is_accepted, label, old_idx)
-
-        if (old_idx is not None) and old_idx >= self.n_valid_points:
-            self.n_valid_points += 1
-
-        # Return whether the point was accepted or not
-        if return_idx:
-            return is_accepted, old_idx
+        points = jnp.array([point])
+        labels = [label] if label else None
+        n_accepted = self.extend(points, labels)
+        is_accepted = n_accepted > 0
         return is_accepted
 
     def extend(self, points: jnp.ndarray, labels=None) -> int:
@@ -161,15 +97,6 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def _update_counters(self, is_accepted: bool, label=None, label_idx=None):
-        """
-        Update the counters.
-        """
-        if is_accepted:
-            self.n_accepted += 1
-            self._add_label_for_accepted_point(label, label_idx)
-        self.n_seen += 1
-
     @property
     def n_rejected(self) -> int:
         """
@@ -209,7 +136,7 @@ class OnlineDiversityPicker:
         return self._labels[: self.n_valid_points]
 
     @property
-    def points(self) -> jnp.array:
+    def points(self) -> jnp.ndarray | None:
         """
         Return the currently picked points.
         """
