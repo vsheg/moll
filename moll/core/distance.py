@@ -120,9 +120,9 @@ def needless_point_idx(
     deltas = total_potentials_without_each_point
 
     # Find the point that would decrease the total potential the most (deltas are negative)
-    needless_point_idx = deltas.argmax()
+    idx = deltas.argmax()
 
-    return needless_point_idx
+    return idx
 
 
 def _min_dist(x, X, dist_fn, n_valid, threshold=0.0):
@@ -134,7 +134,7 @@ def _min_dist(x, X, dist_fn, n_valid, threshold=0.0):
     def early_stop(dists):
         # Loop condition function
         def cond_fun(args):
-            i, dists, min_dist = args
+            i, _dists, min_dist = args
             return (min_dist > threshold) & (i < n_valid)
 
         # Loop body function
@@ -193,8 +193,8 @@ def add_point_to_bag(
     approx_min: bool = True,
 ) -> tuple[jnp.ndarray, bool, int]:
     """
-    Adds one point to the bag, return the acceptance flag, the updated bag and the index of the replaced point (or -1
-    if no point was replaced).
+    Adds one point to the bag, return the acceptance flag, the updated bag and the index
+    of the replaced point (or -1 if no point was replaced).
     """
 
     assert k_neighbors > 0
@@ -281,7 +281,7 @@ def finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
     """
     # Take the last occurrence of each change
     changes_reversed = changes[::-1]
-    unique_changes, unique_idxs = jnp.unique(
+    _unique_changes, unique_idxs = jnp.unique(
         changes_reversed, return_index=True, size=changes.shape[0]
     )
 

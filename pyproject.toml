@@ -51,3 +51,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 addopts="-n auto"
+
+[tool.pylint.messages_control]
+max-line-length = 120
+disable = [
+  "missing-docstring",
+]
