@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import pytest
 from sklearn import datasets
 
-from moll.core.distance import euclidean
+from moll.core.distance import euclidean, tanimoto
 from moll.core.diversity import OnlineDiversityPicker
 from moll.core.utils import generate_points, random_grid_points
 
@@ -18,6 +18,11 @@ RANDOM_SEED = 42
 @pytest.fixture
 def picker5():
     return OnlineDiversityPicker(capacity=5, dist_fn=euclidean)
+
+
+@pytest.fixture
+def picker_tanimoto():
+    return OnlineDiversityPicker(capacity=5, dist_fn=tanimoto)
 
 
 # Test that the picker API works as expected
@@ -121,19 +126,15 @@ def n_batches(request):
     return request.param
 
 
-def test_append_many(picker, centers_and_points, labels):
+def test_append_many(picker, centers_and_points):
     centers, points = centers_and_points
 
     assert picker.is_empty() == True
 
     # If labels are not provided, generate a placeholder for zip
-    labels_ = labels or itertools.repeat(None)
 
-    for point, label in zip(points, labels_):
-        if labels:
-            picker.append(point, label=label)
-        else:
-            picker.append(point)
+    for point in points:
+        picker.append(point)
 
     selected_points = picker.points
 
@@ -146,12 +147,6 @@ def test_append_many(picker, centers_and_points, labels):
     assert picker.size() == len(centers)
     assert picker.n_rejected == picker.n_seen - picker.n_accepted
 
-    # Check labels
-    if labels:
-        assert len(picker.labels) == picker.capacity
-        assert len(set(picker.labels)) == picker.capacity
-        assert set(picker.labels).issubset(set(labels))
-
     # Check if at least one point from each cluster is selected
     for center in centers:
         assert jax.vmap(jnp.linalg.norm)(selected_points - center).min() <= jnp.sqrt(
@@ -159,7 +154,7 @@ def test_append_many(picker, centers_and_points, labels):
         )
 
 
-def test_extend(picker, centers_and_points, labels, n_batches):
+def test_extend_many(picker, centers_and_points, n_batches):
     centers, points = centers_and_points
 
     assert picker.is_empty() == True
@@ -167,19 +162,9 @@ def test_extend(picker, centers_and_points, labels, n_batches):
     batches = jnp.array_split(points, n_batches)
 
     n_accepted_total = 0
-    next_label_to_take_idx = 0
 
     for batch in batches:
-        if labels:
-            batch_size = len(batch)
-            label_batch = labels[
-                next_label_to_take_idx : next_label_to_take_idx + batch_size
-            ]
-            next_label_to_take_idx += batch_size
-            n_accepted = picker.extend(batch, labels=label_batch)
-        else:
-            n_accepted = picker.extend(batch)
-
+        n_accepted = picker.extend(batch)
         assert n_accepted >= 0
         assert n_accepted <= picker.capacity
         n_accepted_total += n_accepted
@@ -220,41 +205,76 @@ def test_extend_same_points(picker5: OnlineDiversityPicker):
     assert picker5.n_accepted == 3
     assert picker5.n_rejected == 9
     assert picker5.points.shape == (3, 3)
-    assert len(picker5._labels) == n_accepted
+    assert len(picker5.labels) == n_accepted
 
 
-def test_labels_append(picker5: OnlineDiversityPicker):
-    # Generate 2 circles: a small one and a large one.
-    # Points in the small circle are not favorable because of repulsion.
-    # Test that most labels are assigned to the large circle.
+@pytest.fixture
+def circles(factor=0.1, random_state=42, n_samples=10):
+    """
+    Generate 2 circles: a small one and a large one. Points in the small circle are not
+    favorable because of repulsion.
+    """
+    points, tags = datasets.make_circles(
+        factor=factor, random_state=random_state, n_samples=n_samples
+    )
+    labels = [("small" if tag else "large", i) for i, tag in enumerate(tags)]
+    return points, labels
 
-    points, tags = datasets.make_circles(factor=0.1, random_state=42)
-    labels = [f"{tag}-{i}" for i, tag in enumerate(tags)]
+
+def test_labels_append(picker5: OnlineDiversityPicker, circles):
+    points, labels = circles
 
     for point, label in zip(points, labels):
         picker5.append(point, label=label)
 
-    tags_picked = [int(label.rstrip()[0]) for label in picker5.labels]
-    tags_count = Counter(tags_picked)
+    assert picker5.labels
+    counts = Counter(circle for circle, idx in picker5.labels)
 
-    assert tags_count[0] >= 4  # large circle
-    assert tags_count[1] <= 1  # small circle
+    assert counts["large"] >= 4
+    assert counts["small"] <= 1
 
 
-def test_partial_fit(picker5: OnlineDiversityPicker):
-    # Generate 2 circles: a small one and a large one.
-    # Points in the small circle are not favorable because of repulsion.
-    # Test that most labels are assigned to the large circle.
+def test_manual_labels_extend(picker5: OnlineDiversityPicker, circles):
+    points, labels = circles
 
-    points, tags = datasets.make_circles(
-        factor=0.1, random_state=42, n_samples=10
-    )  # TODO
-    labels = [f"{tag}-{i}" for i, tag in enumerate(tags)]
+    n_accepted = picker5.extend(points, labels=labels)
 
-    n_accepted = picker5.partial_fit(points, labels=labels)
+    assert picker5.labels
+    counts = Counter(circle for circle, idx in picker5.labels)
 
-    tags_picked = [int(label.rstrip()[0]) for label in picker5.labels]
-    tags_count = Counter(tags_picked)
+    assert counts["large"] >= 4
+    assert counts["small"] <= 1
 
-    assert tags_count[0] >= 4  # large circle
-    assert tags_count[1] <= 1  # small circle
+
+def test_auto_labels_extend(picker5: OnlineDiversityPicker, circles):
+    points, _labels = circles
+
+    large_circle_idxs = {idx for tag, idx in _labels if tag == "large"}
+    small_circle_idxs = {idx for tag, idx in _labels if tag == "small"}
+
+    n_accepted = picker5.extend(points)
+
+    assert picker5.labels
+    labels_generated = set(picker5.labels)
+
+    assert large_circle_idxs == labels_generated
+    assert small_circle_idxs & labels_generated == set()
+
+
+def test_tanimoto_picker(picker_tanimoto: OnlineDiversityPicker):
+    points = jnp.array(
+        [
+            [0, 0, 0, 0],
+            [0, 0, 0, 1],
+            [0, 0, 1, 0],
+            [0, 1, 0, 0],
+            [1, 0, 0, 0],
+            [1, 1, 0, 0],
+            [0, 1, 1, 0],
+        ]
+    )
+
+    picker_tanimoto.extend(points)
+
+    assert picker_tanimoto.n_seen == len(points)
+    assert picker_tanimoto.n_accepted == 5

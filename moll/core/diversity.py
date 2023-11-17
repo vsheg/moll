@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Callable
 
 import jax.numpy as jnp
 
@@ -11,7 +11,7 @@ class OnlineDiversityPicker:
     def __init__(
         self,
         capacity: int,
-        dist_fn: callable,
+        dist_fn: Callable,
         k_neighbors: int = 5,
         p: float = 1.0,
         threshold: float = 0.0,
@@ -23,13 +23,13 @@ class OnlineDiversityPicker:
         self.threshold = threshold
 
         self._data: jnp.ndarray | None = None
-        self._labels: list = []
+        self._labels: list = [None] * capacity
 
         self.n_seen: int = 0
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
 
-    def _fill_if_not_full(self, point: jnp.ndarray) -> (bool, int):
+    def _fill_if_not_full(self, point: jnp.ndarray) -> tuple[bool, int]:
         """
         Add point if pickier is not filed yet.
         """
@@ -76,6 +76,8 @@ class OnlineDiversityPicker:
         # If we haven't seen enough points, just add the point to the data rejecting duplicates
         if not self.is_full():
             is_accepted, old_idx = self._fill_if_not_full(point)
+            if is_accepted:
+                self.n_valid_points += 1
         else:
             # If we have seen enough points, decide whether to add the point or not
             self._data, is_accepted, old_idx = add_point_to_bag(
@@ -85,6 +87,7 @@ class OnlineDiversityPicker:
                 k_neighbors=self.k_neighbors,
                 threshold=self.threshold,
                 power=self.p,
+                n_valid_points=self.n_valid_points,
             )
 
             old_idx = None if old_idx < 0 else old_idx
@@ -100,36 +103,33 @@ class OnlineDiversityPicker:
             return is_accepted, old_idx
         return is_accepted
 
-    def extend(self, points: jnp.ndarray, labels=None, *, pairs=None) -> int:
+    def extend(self, points: jnp.ndarray, labels=None) -> int:
         """
         Add a batch of points to the picker.
         """
 
-        # assert pairs is None or (
-        #     points is None and labels is None
-        # ), "`pairs` are provided, then `points` and `labels` must be None"
-
         if not labels:
-            labels = [None] * len(points)
+            labels = range(self.n_seen, self.n_seen + len(points))
 
         batch_size = len(points)
         n_accepted = 0
-        was_init = False
 
         if self.is_empty():
             # compute dim and init data container, add first point
             dim = points.shape[1]
-            self._data = jnp.zeros((self.capacity, dim))
+            dtype = points.dtype
+            self._data = jnp.zeros((self.capacity, dim), dtype=dtype)
             self._data = self._data.at[0].set(points[0])
+            self._labels[0] = labels[0]
 
             self.n_valid_points += 1
-            was_init = True  # to return correct n_accepted
+            n_accepted += 1
 
             points = points[1:]
-            labels = labels and labels[1:]
+            labels = labels[1:]
 
         if points.shape[0] > 0:
-            changed_item_idxs, data_updated, acceptance_mask = add_points_to_bag(
+            update_idxs, data_updated, acceptance_mask = add_points_to_bag(
                 X=self._data,
                 xs=points,
                 dist_fn=self.dist_fn,
@@ -143,17 +143,19 @@ class OnlineDiversityPicker:
 
             last_valid_idx = self.n_valid_points - 1
             n_updated = (
-                ((changed_item_idxs >= 0) & (changed_item_idxs <= last_valid_idx))
-                .sum()
-                .item()
+                ((update_idxs >= 0) & (update_idxs <= last_valid_idx)).sum().item()
             )
-            n_appended = (changed_item_idxs > last_valid_idx).sum().item()
+            n_appended = (update_idxs > last_valid_idx).sum().item()
             self.n_valid_points += n_appended
 
-            n_accepted = n_appended + n_updated
+            n_accepted += n_appended + n_updated
 
-        n_accepted += was_init
-        n_accepted = min(n_accepted, self.capacity, batch_size)
+            # Update labels
+            for updated_idx, label in zip(update_idxs, labels):
+                if updated_idx >= 0:
+                    self._labels[updated_idx] = label
+
+        n_accepted = min(n_accepted, self.capacity)
         self.n_accepted += n_accepted
         self.n_seen += batch_size
 
@@ -188,7 +190,6 @@ class OnlineDiversityPicker:
         """
         if self.is_empty():
             return False
-        # TODO: assert self.n_valid_points <= self.capacity
         return self.capacity == self.size()
 
     def is_empty(self) -> bool:
@@ -199,18 +200,22 @@ class OnlineDiversityPicker:
         return (data is None) or (data.shape[0] == 0)
 
     @property
-    def labels(self) -> list:
+    def labels(self) -> list | None:
         """
         Return the currently picked labels.
         """
-        return self._labels
+        if self._data is None:
+            return None
+        return self._labels[: self.n_valid_points]
 
     @property
-    def points(self) -> list:
+    def points(self) -> jnp.array:
         """
         Return the currently picked points.
         """
-        return self._data
+        if self._data is None:
+            return None
+        return self._data[: self.n_valid_points]
 
     @property
     def dim(self) -> int | None:
