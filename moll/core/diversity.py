@@ -1,6 +1,7 @@
 from typing import Callable
 
 import jax.numpy as jnp
+from loguru import logger
 
 from moll.core.distance import add_points_to_bag
 
@@ -19,6 +20,7 @@ class OnlineDiversityPicker:
         k_neighbors: int = 5,
         p: float = 1.0,
         threshold: float = 0.0,
+        dtype: jnp.dtype = None,
     ):
         self.capacity: int = capacity
         self.dist_fn = dist_fn
@@ -27,49 +29,64 @@ class OnlineDiversityPicker:
         self.threshold = threshold
 
         self._data: jnp.ndarray | None = None
+        self.dtype: jnp.dtype | None = dtype
         self._labels: list = [None] * capacity
 
         self.n_seen: int = 0
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
 
-    def append(self, point, label=None) -> bool:
+    def _init(self, point: jnp.ndarray, label=None) -> int:
         """
-        Add a point to the picker.
+        Initialize the picker with the first point.
         """
-        points = jnp.array([point])
-        labels = [label] if label else None
-        n_accepted = self.extend(points, labels)
-        is_accepted = n_accepted > 0
-        return is_accepted
+
+        dim = point.shape[0]
+        self.dtype = point.dtype
+        self._data = jnp.zeros((self.capacity, dim), dtype=self.dtype)
+        self._data = self._data.at[0].set(point)
+        self._labels[0] = label
+
+        self.n_valid_points += 1
+        self.n_accepted += 1
+        self.n_seen += 1
 
     def extend(self, points: jnp.ndarray, labels=None) -> int:
         """
         Add a batch of points to the picker.
         """
 
-        if not labels:
-            labels = range(self.n_seen, self.n_seen + len(points))
-
         batch_size = len(points)
         n_accepted = 0
 
-        if self.is_empty():
-            # compute dim and init data container, add first point
-            dim = points.shape[1]
-            dtype = points.dtype
-            self._data = jnp.zeros((self.capacity, dim), dtype=dtype)
-            self._data = self._data.at[0].set(points[0])
-            self._labels[0] = labels[0]
+        # Check labels
 
-            self.n_valid_points += 1
-            n_accepted += 1
+        if not labels:
+            labels = range(self.n_seen, self.n_seen + len(points))
+        else:
+            assert len(labels) == batch_size
 
+        # Check dtype
+
+        if points.dtype is jnp.float64:
+            points = points.astype(self.dtype)
+            logger.warning(
+                "Downcasting to float32. If float64 is needed, set dtype=jnp.float64"
+                " and configure JAX to support it."
+            )
+
+        # Init if empty
+
+        if was_empty := self.is_empty():
+            self._init(points[0], labels[0])
             points = points[1:]
             labels = labels[1:]
+            n_accepted += 1
+
+        # Process remaining points
 
         if points.shape[0] > 0:
-            update_idxs, data_updated, _acceptance_mask = add_points_to_bag(
+            update_idxs, data_updated, acceptance_mask = add_points_to_bag(
                 X=self._data,
                 xs=points,
                 dist_fn=self.dist_fn,
@@ -87,7 +104,6 @@ class OnlineDiversityPicker:
             )
             n_appended = (update_idxs > last_valid_idx).sum().item()
             self.n_valid_points += n_appended
-
             n_accepted += n_appended + n_updated
 
             # Update labels
@@ -96,10 +112,43 @@ class OnlineDiversityPicker:
                     self._labels[updated_idx] = label
 
         n_accepted = min(n_accepted, self.capacity)
-        self.n_accepted += n_accepted
-        self.n_seen += batch_size
+        self.n_accepted += n_accepted - was_empty
+        self.n_seen += batch_size - was_empty
 
         return n_accepted
+
+    def append(self, point, label=None) -> bool:
+        """
+        Add a point to the picker.
+        """
+        points = jnp.array([point])
+        labels = [label] if label else None
+        n_accepted = self.extend(points, labels)
+        is_accepted = n_accepted > 0
+        return is_accepted
+
+    def fast_init(self, points: jnp.ndarray, labels=None) -> int:
+        """
+        Initialize the picker with a set of points.
+        """
+        assert self.is_empty()
+
+        batch_size = points.shape[0]
+        assert batch_size <= self.capacity
+
+        if labels:
+            assert len(labels) == batch_size
+        else:
+            labels = range(len(points))
+
+        self._init(points[0], labels[0])
+
+        self._data = self._data.at[1:batch_size].set(points[1:])
+        self._labels[1:batch_size] = labels[1:]
+
+        self.n_accepted += batch_size - 1
+        self.n_seen += batch_size - 1
+        self.n_valid_points += batch_size - 1
 
     @property
     def n_rejected(self) -> int:
