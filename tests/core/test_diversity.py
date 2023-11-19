@@ -201,7 +201,7 @@ def test_extend_same_points(picker_euclidean: OnlineDiversityPicker):
 
 
 @pytest.fixture
-def circles(factor=0.1, random_state=42, n_samples=10):
+def circles(factor=0.1, random_state=42, n_samples=20):
     """
     Generate 2 circles: a small one and a large one. Points in the small circle are not
     favorable because of repulsion.
@@ -249,7 +249,7 @@ def test_auto_labels_extend(picker_euclidean: OnlineDiversityPicker, circles):
     assert picker_euclidean.labels
     labels_generated = set(picker_euclidean.labels)
 
-    assert large_circle_idxs == labels_generated
+    assert large_circle_idxs.issuperset(labels_generated)
     assert small_circle_idxs & labels_generated == set()
 
 
@@ -270,3 +270,25 @@ def test_tanimoto_picker(picker_tanimoto: OnlineDiversityPicker):
 
     assert picker_tanimoto.n_seen == len(points)
     assert picker_tanimoto.n_accepted == 5
+
+
+@pytest.mark.parametrize(
+    "init_batch_size",
+    [1, 2, 3, 4, 5],
+)
+def test_fast_init(picker_euclidean: OnlineDiversityPicker, circles, init_batch_size):
+    points, labels = circles
+
+    batch_init = points[:init_batch_size]
+    batch = points[init_batch_size:]
+    labels_init = labels[:init_batch_size]
+    labels = labels[init_batch_size:]
+
+    picker_euclidean.fast_init(batch_init, labels_init)
+    picker_euclidean.extend(batch, labels)
+
+    assert picker_euclidean.labels
+    counts = Counter(circle for circle, idx in picker_euclidean.labels)
+
+    assert counts["large"] >= 4
+    assert counts["small"] <= 1

@@ -2,8 +2,8 @@ import jax.numpy as jnp
 import pytest
 
 from moll.core.distance import (
+    _add_points_to_bag,
     add_point_to_bag,
-    add_points_to_bag,
     euclidean,
     finalize_updates,
     matrix_cross_sum,
@@ -165,7 +165,7 @@ def test_add_points_to_bag(X, xs, acc_mask):
     xs = jnp.array(xs)
     acc_mask = jnp.array(acc_mask)
 
-    _updated_idxs, X_updated, acceptance_mask = add_points_to_bag(
+    _updated_idxs, X_updated, acceptance_mask = _add_points_to_bag(
         X=X,
         xs=xs,
         dist_fn=euclidean,
