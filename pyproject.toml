@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "moll"
-version = "0.1.7"
+version = "0.1.8"
 description = ""
 authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
