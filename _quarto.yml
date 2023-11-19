@@ -1,6 +1,6 @@
 project:
   type: website
-  render: 
+  render:
     - README.md
     - notebooks/*.ipynb
 
@@ -10,10 +10,13 @@ website:
   sidebar:
     contents:
       - README.md
-      - notebooks/diversity.ipynb
+      - section: "Diversity"
+        contents:
+          - notebooks/diversity.ipynb
+          - notebooks/chembl-1-percent.ipynb
     tools:
-        - icon: github
-          url:  https://github.com/vsheg/moll
+      - icon: github
+        url: https://github.com/vsheg/moll
 
 format:
   html:
