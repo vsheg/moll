@@ -5,19 +5,20 @@ description = ""
 authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
 
+# Main dependencies
+
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-seaborn = "^0.12.2"
+python = ">=3.9,<3.12"
 tqdm = "^4.66.1"
-papermill = "^2.5.0"
 loguru = "^0.7.2"
 
+# Dev dependencies
+
 [tool.poetry.group.dev.dependencies]
+seaborn = "^0.12.2"
 black = "^23.3.0"
 pylint = "^2.17.4"
 pytest = "^7.3.2"
-jax = "0.4.20"
-jaxlib = {version = "0.4.20", source = "jax_cpu"}
 rdkit = "^2023.3.1"
 ipykernel = "^6.25.2"
 ipython = "^8.15.0"
@@ -28,6 +29,19 @@ ipywidgets = "^8.1.1"
 scikit-learn = "^1.3.2"
 jupyter = "^1.0.0"
 pytest-cov = "^4.1.0"
+jax = "0.4.20"
+# TODO: add option to install jaxlib for different hardware and platforms
+jaxlib = [
+  { version = "0.4.20", source = "jax_cpu", markers = "sys_platform == 'darwin'" },
+  { version = "0.4.20+cuda12.cudnn89", source = "jax_cuda", markers = "sys_platform == 'linux'" },
+]
+
+
+# Sources
+
+
+[tool.poetry.group.profiler.dependencies]
+tensorflow = "^2.15.0"
 
 [[tool.poetry.source]]
 name = "jax_cpu"
@@ -45,15 +59,15 @@ priority = "primary"
 name = "PyPI"
 priority = "primary"
 
+# Tools
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts="-n auto"
+addopts = "-n auto"
 
 [tool.pylint.messages_control]
 max-line-length = 120
-disable = [
-  "missing-docstring",
-]
+disable = ["missing-docstring"]
