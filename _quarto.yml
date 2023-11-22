@@ -6,6 +6,8 @@ project:
 
 website:
   title: "moll docs"
+  repo-url: https://github.com/vsheg/moll
+  repo-actions: [issue]
   page-navigation: true
   sidebar:
     contents:
@@ -14,6 +16,7 @@ website:
         contents:
           - notebooks/diversity.ipynb
           - notebooks/chembl-1-percent.ipynb
+          - notebooks/zinc20.ipynb
     tools:
       - icon: github
         url: https://github.com/vsheg/moll
@@ -25,3 +28,5 @@ format:
       sidebar-width: 400px
       body-width: 1000px
       margin-width: 300px
+    code-tools:
+      source: repo
