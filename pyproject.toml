@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "moll"
-version = "0.1.9"
+version = "0.1.10"
 description = ""
 authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
@@ -10,7 +10,10 @@ readme = "README.md"
 python = ">=3.9,<3.13"
 rdkit = "^2023.3.1"
 loguru = "^0.7.2"
+jax = { version = "^0.4.20", extras = ["cpu"], optional = true }
 
+[tool.poetry.extras]
+cpu = ["jax"]
 
 [tool.poetry.group.dev.dependencies]
 tqdm = "^4.66.1"
@@ -27,21 +30,12 @@ pytest-cov = "^4.1.0"
 cloudpickle = "^3.0.0"
 
 
-[tool.poetry.group.jax_cpu]
-optional = true
-
-[tool.poetry.group.jax_cpu.dependencies]
-jax = "0.4.20"
-jaxlib = { version = "0.4.20", source = "jax_cpu" }
-
 [tool.poetry.group.torch]
 optional = true
 
 [tool.poetry.group.torch.dependencies]
 torch = { version = "^2.1.0", source = "torch" }
 
-[tool.poetry.extras]
-cpu = ["jax", "jaxlib"]
 
 [[tool.poetry.source]]
 name = "PyPI"
