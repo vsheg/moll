@@ -4,24 +4,18 @@
 
 ## Installation
 
-`moll` depends on RDKit and JAX, you need to install them manually.
+`moll` depends on JAX, you can install it with CUDA support or without it.
 
-1. Install RDKit. The easiest way is to use `pip`:
+- To install `moll` without CUDA support, run:
 
     ```bash
-    pip install rdkit
+    pip install -U moll[cpu]
     ```
 
-2. Install JAX. We recommend CUDA version, check [this repo](https://github.com/google/jax) and [documentation](https://jax.readthedocs.io/en/latest/installation.html) to see how to install it. If you don't have a GPU, you can install CPU version:
+- If you have a GPU, it is recommended to install CUDA version of JAX at first. Check [this repo](https://github.com/google/jax) and [docs](https://jax.readthedocs.io/en/latest/installation.html) to see how to install JAX. Then run:
 
     ```bash
-    pip install -U "jax[cpu]"
-    ```
-
-3. Install moll:
-
-    ```bash
-    pip install moll
+    pip install -U moll
     ```
 
 ## How to use
