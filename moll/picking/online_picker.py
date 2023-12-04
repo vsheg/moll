@@ -36,7 +36,7 @@ class OnlineDiversityPicker:
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
 
-    def _init(self, point: jnp.ndarray, label=None):
+    def _init_data(self, point: jnp.ndarray, label=None):
         """
         Initialize the picker with the first point.
         """
@@ -51,7 +51,7 @@ class OnlineDiversityPicker:
         self.n_accepted += 1
         self.n_seen += 1
 
-    def extend(self, points: jnp.ndarray, labels=None) -> int:
+    def update(self, points: jnp.ndarray, labels=None) -> int:
         """
         Add a batch of points to the picker.
         """
@@ -78,7 +78,7 @@ class OnlineDiversityPicker:
         # Init if empty
 
         if was_empty := self.is_empty():
-            self._init(points[0], labels[0])
+            self._init_data(points[0], labels[0])
             points = points[1:]
             labels = labels[1:]
             n_accepted += 1
@@ -117,17 +117,17 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def append(self, point, label=None) -> bool:
+    def add(self, point, label=None) -> bool:
         """
         Add a point to the picker.
         """
         points = jnp.array([point])
         labels = [label] if label else None
-        n_accepted = self.extend(points, labels)
+        n_accepted = self.update(points, labels)
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def fast_init(self, points: jnp.ndarray, labels=None):
+    def warm(self, points: jnp.ndarray, labels=None):
         """
         Initialize the picker with a set of points.
         """
@@ -141,7 +141,7 @@ class OnlineDiversityPicker:
         else:
             labels = range(len(points))
 
-        self._init(points[0], labels[0])
+        self._init_data(points[0], labels[0])
 
         self._data = self._data.at[1:batch_size].set(points[1:])
         self._labels[1:batch_size] = labels[1:]
