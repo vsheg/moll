@@ -1,74 +1,11 @@
-import sys
-from functools import partial
 from typing import Callable
 
 import jax
 import jax.numpy as jnp
 from jax import lax
 
-from moll.core.utils import fill_diagonal
-
-DEBUG = sys.gettrace() is not None
-TEST = "pytest" in sys.modules
-JIT = not DEBUG
-
-# JIT = False
-
-# TODO: not working with pytest-cov
-if not JIT:
-    jax.config.update("jax_disable_jit", True)
-
-
-@jax.jit
-def tanimoto(a: jnp.ndarray, b: jnp.ndarray) -> float:
-    """
-    Computes the Tanimoto distance between two vectors.
-    """
-
-    bitwise_or = jnp.bitwise_or(a, b).sum().astype(float)
-    bitwise_and = jnp.bitwise_and(a, b).sum().astype(float)
-
-    # Check for the case where both vectors are all zeros and return 0.0 in that case
-    return jax.lax.cond(
-        bitwise_or == 0.0,
-        lambda: 0.0,
-        lambda: 1 - (bitwise_and / bitwise_or),
-    )
-
-
-@jax.jit
-def euclidean(p1, p2):
-    """
-    Computes the Euclidean distance between two vectors.
-    """
-    return jnp.linalg.norm(p1 - p2)
-
-
-def _pairwise_distances(X, dist_fn: Callable):
-    """Compute pairwise distances between points in X using a custom distance function."""
-
-    def x_to_X_dists(x):
-        return jax.vmap(lambda y: dist_fn(x, y))(X)
-
-    dists = jax.vmap(x_to_X_dists)(X)
-
-    return dists
-
-
-def _matrix_cross_sum(X: jnp.ndarray, i: int, j: int, row_only=False):
-    """
-    Computes the sum of the elements in the row `i` and the column `j` of the matrix `X`.
-    """
-
-    return lax.cond(
-        row_only,
-        lambda X: X[i, :].sum(),
-        lambda X: X[i, :].sum() + X[:, j].sum() - X[i, j],
-        X,
-    )
-
-
-matrix_cross_sum = jax.jit(_matrix_cross_sum, static_argnames=["row_only"])
+from ..metrics.utils import _matrix_cross_sum, _pairwise_distances
+from ..utils.utils import fill_diagonal
 
 
 def _needless_point_idx(
@@ -82,22 +19,15 @@ def _needless_point_idx(
     potentials = jax.vmap(potential_fn)(dists)
     potentials = fill_diagonal(potentials, 0)  # replace diagonal elements with 0
 
-    total_potentials_without_each_point = jax.vmap(
-        lambda i: _matrix_cross_sum(potentials, i, i, row_only=True)
-    )(jnp.arange(X.shape[0]))
-
-    # Compute the decrease in the total potential
-    deltas = total_potentials_without_each_point
+    # Compute potential decrease for each point
+    deltas = jax.vmap(lambda i: _matrix_cross_sum(potentials, i, i, row_only=True))(
+        jnp.arange(X.shape[0])
+    )
 
     # Find the point that would decrease the total potential the most (deltas are negative)
     idx = deltas.argmax()
 
     return idx
-
-
-needless_point_idx = jax.jit(
-    _needless_point_idx, static_argnames=["dist_fn", "potential_fn"]
-)
 
 
 def dists(x, X, dist_fn, n_valid, threshold=0.0):
@@ -107,7 +37,7 @@ def dists(x, X, dist_fn, n_valid, threshold=0.0):
     return ds.min() > threshold, ds, ds.min()
 
 
-def _add_point_to_bag(
+def _add_point(
     x: jnp.ndarray,
     X: jnp.ndarray,
     dist_fn: Callable,
@@ -147,9 +77,7 @@ def _add_point_to_bag(
         N = jnp.concatenate((jnp.array([x]), X[k_closest_points_indices]))
 
         # Find a point in `N` removing which would decrease the total potential the most
-        needless_point_local_idx = _needless_point_idx(
-            N, dist_fn, lambda d: d**-power
-        )
+        needless_point_local_idx = _needless_point_idx(N, dist_fn, lambda d: d**-power)
 
         # If the needless point is not `x`, replace it with `x`
         is_accepted = needless_point_local_idx > 0
@@ -177,15 +105,6 @@ def _add_point_to_bag(
     return lax.switch(branch_idx, branches, X)
 
 
-add_point_to_bag = jax.jit(
-    _add_point_to_bag,
-    static_argnames=[
-        "dist_fn",
-        "k_neighbors",
-    ],
-)
-
-
 def _finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
     """
     Given an array where each element represents whether a change occurred or
@@ -209,10 +128,7 @@ def _finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
     return jnp.where(mask, changes, -1)
 
 
-finalize_updates = jax.jit(_finalize_updates)
-
-
-def _add_points_to_bag(
+def _add_points(
     *,
     X: jnp.ndarray,
     xs: jnp.ndarray,
@@ -230,7 +146,7 @@ def _add_points_to_bag(
 
     def body_fun(i, args):
         X, changed_items_idxs, n_valid_points = args
-        X_updated, is_accepted, changed_item_idx = _add_point_to_bag(
+        X_updated, is_accepted, changed_item_idx = _add_point(
             xs[i],
             X,
             dist_fn,
@@ -263,8 +179,8 @@ def _add_points_to_bag(
     return changed_item_idxs, X_new, acceptance_mask
 
 
-add_points_to_bag = jax.jit(
-    _add_points_to_bag,
+add_points = jax.jit(
+    _add_points,
     static_argnames=["dist_fn", "k_neighbors"],
     donate_argnames=["X"],
 )

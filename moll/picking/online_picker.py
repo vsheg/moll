@@ -3,7 +3,7 @@ from typing import Callable
 import jax.numpy as jnp
 from loguru import logger
 
-from moll.core.distance import add_points_to_bag
+from .online_add import add_points
 
 __all__ = ["OnlineDiversityPicker"]
 
@@ -20,7 +20,7 @@ class OnlineDiversityPicker:
         k_neighbors: int = 5,
         p: float = 1.0,
         threshold: float = 0.0,
-        dtype: jnp.dtype = None,
+        dtype: jnp.dtype | None = None,
     ):
         self.capacity: int = capacity
         self.dist_fn = dist_fn
@@ -36,7 +36,7 @@ class OnlineDiversityPicker:
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
 
-    def _init(self, point: jnp.ndarray, label=None) -> int:
+    def _init(self, point: jnp.ndarray, label=None):
         """
         Initialize the picker with the first point.
         """
@@ -86,7 +86,7 @@ class OnlineDiversityPicker:
         # Process remaining points
 
         if points.shape[0] > 0:
-            update_idxs, data_updated, acceptance_mask = add_points_to_bag(
+            update_idxs, data_updated, acceptance_mask = add_points(
                 X=self._data,
                 xs=points,
                 dist_fn=self.dist_fn,
@@ -102,9 +102,9 @@ class OnlineDiversityPicker:
             n_updated = (
                 ((update_idxs >= 0) & (update_idxs <= last_valid_idx)).sum().item()
             )
-            n_appended = (update_idxs > last_valid_idx).sum().item()
-            self.n_valid_points += n_appended
-            n_accepted += n_appended + n_updated
+            n_added = (update_idxs > last_valid_idx).sum().item()
+            self.n_valid_points += n_added
+            n_accepted += n_added + n_updated
 
             # Update labels
             for updated_idx, label in zip(update_idxs, labels):
@@ -127,7 +127,7 @@ class OnlineDiversityPicker:
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def fast_init(self, points: jnp.ndarray, labels=None) -> int:
+    def fast_init(self, points: jnp.ndarray, labels=None):
         """
         Initialize the picker with a set of points.
         """

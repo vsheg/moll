@@ -6,9 +6,9 @@ import jax.numpy as jnp
 import pytest
 from sklearn import datasets  # type: ignore
 
-from moll.core.distance import euclidean, tanimoto
-from moll.core.diversity import OnlineDiversityPicker
-from moll.core.utils import generate_points, random_grid_points
+from ..metrics import euclidean, one_minus_tanimoto
+from ..utils.utils import generate_points, random_grid_points
+from .online_picker import OnlineDiversityPicker
 
 RANDOM_SEED = 42
 
@@ -20,7 +20,7 @@ def picker_euclidean():
 
 @pytest.fixture
 def picker_tanimoto():
-    return OnlineDiversityPicker(capacity=5, dist_fn=tanimoto)
+    return OnlineDiversityPicker(capacity=5, dist_fn=one_minus_tanimoto)
 
 
 # Test that the picker API works as expected
