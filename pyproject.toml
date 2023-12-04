@@ -37,8 +37,12 @@ optional = true
 torch = { version = "^2.1.0", source = "torch" }
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules --doctest-continue-on-failure -n auto"
 testpaths = ["moll/"]
+addopts = """
+--doctest-modules \
+--doctest-continue-on-failure \
+-n auto
+"""
 
 
 [[tool.poetry.source]]
