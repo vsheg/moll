@@ -36,6 +36,10 @@ optional = true
 [tool.poetry.group.torch.dependencies]
 torch = { version = "^2.1.0", source = "torch" }
 
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --doctest-continue-on-failure -n auto"
+testpaths = ["moll/"]
+
 
 [[tool.poetry.source]]
 name = "PyPI"
