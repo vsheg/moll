@@ -2,8 +2,8 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from .online_add import _add_point, _finalize_updates, _needless_point_idx, add_points
 from ..metrics.metrics import euclidean
+from .online_add import _add_point, _finalize_updates, _needless_point_idx, add_points
 
 # Test finalize_updates
 

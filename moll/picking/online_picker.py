@@ -107,7 +107,7 @@ class OnlineDiversityPicker:
             n_accepted += n_added + n_updated
 
             # Update labels
-            for updated_idx, label in zip(update_idxs, labels):
+            for updated_idx, label in zip(update_idxs, labels, strict=True):
                 if updated_idx >= 0:
                     self._labels[updated_idx] = label
 

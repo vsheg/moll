@@ -24,7 +24,7 @@ def _needless_point_idx(
         jnp.arange(X.shape[0])
     )
 
-    # Find the point that would decrease the total potential the most (deltas are negative)
+    # Find point that decreases total potential the most (deltas are negative)
     idx = deltas.argmax()
 
     return idx

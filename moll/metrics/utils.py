@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import jax
 import jax.numpy as jnp
@@ -6,7 +6,9 @@ from jax import lax
 
 
 def _pairwise_distances(X, dist_fn: Callable):
-    """Compute pairwise distances between points in X using a custom distance function."""
+    """
+    Compute pairwise distances between points in X using a custom distance function.
+    """
 
     def x_to_X_dists(x):
         return jax.vmap(lambda y: dist_fn(x, y))(X)
@@ -18,7 +20,7 @@ def _pairwise_distances(X, dist_fn: Callable):
 
 def _matrix_cross_sum(X: jnp.ndarray, i: int, j: int, row_only=False):
     """
-    Computes the sum of the elements in the row `i` and the column `j` of the matrix `X`.
+    Compute the sum of the elements in the row `i` and the column `j` of the matrix `X`.
     """
 
     return lax.cond(
