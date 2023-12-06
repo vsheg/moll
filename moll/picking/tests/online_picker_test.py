@@ -4,7 +4,7 @@ from random import shuffle
 import jax
 import jax.numpy as jnp
 import pytest
-from sklearn import datasets  # type: ignore
+from sklearn import datasets
 
 from ...metrics import euclidean, one_minus_tanimoto
 from ...utils.utils import generate_points, random_grid_points
@@ -15,12 +15,12 @@ RANDOM_SEED = 42
 
 @pytest.fixture
 def picker_euclidean():
-    return OnlineDiversityPicker(capacity=5, dist_fn=euclidean)
+    return OnlineDiversityPicker(capacity=5, similarity_fn=euclidean)
 
 
 @pytest.fixture
 def picker_tanimoto():
-    return OnlineDiversityPicker(capacity=5, dist_fn=one_minus_tanimoto)
+    return OnlineDiversityPicker(capacity=5, similarity_fn=one_minus_tanimoto)
 
 
 # Test that the picker API works as expected
@@ -55,6 +55,32 @@ def test_add_many(picker_euclidean):
     assert (picker_euclidean.points[0] == p).all()
 
 
+@pytest.mark.parametrize(
+    "k_neighbors,expected,text",
+    [
+        (1, 1, ...),
+        (5, 5, ...),
+        (0.5, 2, ...),  # 0.5 * capacity = 2.5 -> 2
+        (0, ValueError, "positive"),
+        (-1, ValueError, "positive"),
+        (1.5, ValueError, ">0 and <1"),
+        (10, ValueError, "smaller"),  # k_neighbors > capacity
+    ],
+)
+def test_k_neighbors(k_neighbors, expected, text):
+    if isinstance(expected, type) and issubclass(expected, Exception):
+        with pytest.raises(expected, match=text):
+            print(k_neighbors)
+            picker = OnlineDiversityPicker(
+                capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
+            )
+    else:
+        picker = OnlineDiversityPicker(
+            capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
+        )
+        assert picker.k_neighbors == expected
+
+
 # Test that the picker returns the most distant points
 
 
@@ -67,7 +93,7 @@ def picker(request):
     """
     return OnlineDiversityPicker(
         capacity=request.param,
-        dist_fn=euclidean,
+        similarity_fn=euclidean,
         k_neighbors=request.param,
     )
 

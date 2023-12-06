@@ -3,7 +3,12 @@ import jax.numpy as jnp
 import pytest
 
 from ...metrics.metrics import euclidean
-from ..online_add import _add_point, _finalize_updates, _needless_point_idx, add_points
+from ..online_add import (
+    _add_point,
+    _finalize_updates,
+    _needless_point_idx,
+    update_points,
+)
 
 # Test finalize_updates
 
@@ -121,7 +126,7 @@ def test_add_points(X, xs, acc_mask):
     acc_mask = jnp.array(acc_mask)
     X_copy = X.copy()
 
-    _updated_idxs, X_updated, acceptance_mask = add_points(
+    _updated_idxs, X_updated, acceptance_mask = update_points(
         X=X,
         xs=xs,
         dist_fn=euclidean,

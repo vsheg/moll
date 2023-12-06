@@ -131,7 +131,7 @@ def _finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
     return jnp.where(mask, changes, -1)
 
 
-def _add_points(
+def _update_points(
     *,
     X: jnp.ndarray,
     xs: jnp.ndarray,
@@ -182,8 +182,8 @@ def _add_points(
     return changed_item_idxs, X_new, acceptance_mask
 
 
-add_points = jax.jit(
-    _add_points,
+update_points = jax.jit(
+    _update_points,
     static_argnames=["dist_fn", "k_neighbors"],
     donate_argnames=["X"],
 )

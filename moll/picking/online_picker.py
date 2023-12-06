@@ -5,9 +5,10 @@ Online algorithm for picking a subset of points based on their distance.
 from collections.abc import Callable
 
 import jax.numpy as jnp
+from jaxtyping import Array
 from loguru import logger
 
-from .online_add import add_points
+from .online_add import update_points
 
 __all__ = ["OnlineDiversityPicker"]
 
@@ -20,15 +21,19 @@ class OnlineDiversityPicker:
     def __init__(
         self,
         capacity: int,
-        dist_fn: Callable,
-        k_neighbors: int = 5,
+        similarity_fn: Callable[[Array, Array], float],
+        *,
+        potential_fn: Callable[[float], float]
         p: float = 1.0,
+        k_neighbors: int | float = 5,
         threshold: float = 0.0,
         dtype: jnp.dtype | None = None,
     ):
-        self.capacity: int = capacity
-        self.dist_fn = dist_fn
-        self.k_neighbors = k_neighbors
+        self.capacity = capacity
+        self.similarity_fn = similarity_fn
+
+        self.k_neighbors = self._init_k_neighbors(k_neighbors, capacity)
+
         self.p = p
         self.threshold = threshold
 
@@ -39,6 +44,28 @@ class OnlineDiversityPicker:
         self.n_seen: int = 0
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
+
+    def _init_k_neighbors(self, k_neighbors: int | float, capacity: int) -> int:
+        if isinstance(k_neighbors, float):
+            if not 0 < k_neighbors < 1:
+                raise ValueError(f"Float k_neighbors={k_neighbors} must be >0 and <1")
+
+            if k_neighbors * capacity < 1:
+                raise ValueError(
+                    f"Given the capacity={capacity}, k_neighbors={k_neighbors} is too small",
+                )
+
+            k_neighbors = int(k_neighbors * capacity)
+
+        if isinstance(k_neighbors, int):
+            if k_neighbors <= 0:
+                raise ValueError(f"Expected k_neighbors={k_neighbors} to be positive")
+            if k_neighbors > capacity:
+                raise ValueError(
+                    f"Expected k_neighbors={k_neighbors} to be smaller than capacity={capacity}"
+                )
+
+        return k_neighbors
 
     def _init_data(self, point: jnp.ndarray, label=None):
         """
@@ -90,10 +117,10 @@ class OnlineDiversityPicker:
         # Process remaining points
 
         if points.shape[0] > 0:
-            update_idxs, data_updated, acceptance_mask = add_points(
+            update_idxs, data_updated, acceptance_mask = update_points(
                 X=self._data,
                 xs=points,
-                dist_fn=self.dist_fn,
+                dist_fn=self.similarity_fn,
                 k_neighbors=self.k_neighbors,
                 power=self.p,
                 threshold=self.threshold,
