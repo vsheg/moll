@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
 
 __all__ = [
     "mismatches",
@@ -15,13 +16,13 @@ def mismatches(p1, p2):
     """
     Computes the L0-norm distance between two vectors.
 
-    >>> mismatches(jnp.array([1, 2, 3]), jnp.array([1, 2, 3])).item()
+    >>> mismatches(A([1, 2, 3]), A([1, 2, 3])).item()
     0.0
 
-    >>> mismatches(jnp.array([1, 2, 3]), jnp.array([1, 2, -3])).item()
+    >>> mismatches(A([1, 2, 3]), A([1, 2, -3])).item()
     1.0
 
-    >>> mismatches(jnp.array([1, 2, 3]), jnp.array([4, 5, 6])).item()
+    >>> mismatches(A([1, 2, 3]), A([4, 5, 6])).item()
     3.0
     """
     return jnp.sum(p1 != p2).astype(float)
@@ -32,13 +33,13 @@ def manhattan(p1, p2):
     """
     Computes the Manhattan distance between two vectors.
 
-    >>> manhattan(jnp.array([1, 2, 3]), jnp.array([1, 2, 3])).item()
+    >>> manhattan(A([1, 2, 3]), A([1, 2, 3])).item()
     0.0
 
-    >>> manhattan(jnp.array([1, 2, 3]), jnp.array([1, 2, 4])).item()
+    >>> manhattan(A([1, 2, 3]), A([1, 2, 4])).item()
     1.0
 
-    >>> manhattan(jnp.array([1, 2, 3]), jnp.array([4, 5, 6])).item()
+    >>> manhattan(A([1, 2, 3]), A([4, 5, 6])).item()
     9.0
     """
     return jnp.sum(jnp.abs(p1 - p2)).astype(float)
@@ -49,13 +50,13 @@ def euclidean(p1, p2):
     """
     Computes the Euclidean distance between two vectors.
 
-    >>> euclidean(jnp.array([1, 2, 3]), jnp.array([1, 2, 3])).item()
+    >>> euclidean(A([1, 2, 3]), A([1, 2, 3])).item()
     0.0
 
-    >>> euclidean(jnp.array([1, 2, 3]), jnp.array([1, 2, 4])).item()
+    >>> euclidean(A([1, 2, 3]), A([1, 2, 4])).item()
     1.0
 
-    >>> euclidean(jnp.array([1, 2, 3]), jnp.array([4, 5, 6])).item()
+    >>> euclidean(A([1, 2, 3]), A([4, 5, 6])).item()
     5.19615...
     """
     return jnp.linalg.norm(p1 - p2)
@@ -66,10 +67,10 @@ def tanimoto(a: jnp.ndarray, b: jnp.ndarray):
     """
     Computes the Tanimoto coefficient between two vectors.
 
-    >>> tanimoto(jnp.array([1, 1]), jnp.array([1, 0])).item()
+    >>> tanimoto(A([1, 1]), A([1, 0])).item()
     0.5
 
-    >>> tanimoto(jnp.array([1, 1]), jnp.array([0, 0])).item()
+    >>> tanimoto(A([1, 1]), A([0, 0])).item()
     0.0
     """
 
