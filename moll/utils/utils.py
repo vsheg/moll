@@ -11,7 +11,6 @@ __all__ = [
     "points_around",
     "grid_centers",
     "globs",
-    "generate_points",
     "random_grid_points",
     "partition",
     "fill_diagonal",
@@ -44,43 +43,64 @@ def create_key(seed: Seed = None) -> jnp.ndarray:
 def points_around(
     center: jnp.ndarray,
     n_points: int,
-    key: jnp.ndarray,
-    radius: float | int = 1,
+    seed: Seed = None,
+    std: float = 1,
 ):
+    """Generate points around a center."""
+    key = create_key(seed)
     dim = len(center)
-    offsets = jax.random.uniform(
-        key, shape=(n_points, dim), minval=-radius, maxval=radius
-    )
+    offsets = jax.random.normal(key, shape=(n_points, dim)) * std
     return center + offsets
 
 
-def generate_points(
-    centers: jnp.ndarray,
-    sizes: list,
-    std: float | int = 1,
+def grid_centers(
+    n_ticks: tuple[int, ...],
+    range: float = 1,
+    std: float = 0.0,
     seed: Seed = None,
-    shuffle: bool = True,
 ) -> jnp.ndarray:
     """
-    Generate points around centers.
+    Generate grid centers.
     """
-    assert len(centers) == len(sizes), "Number of centers and sizes must be the same"
+    dim = len(n_ticks)
+    ticks = jnp.linspace(-1, 1, num=n_ticks[0]) * range
+    centers = jnp.array(jnp.meshgrid(*[ticks] * dim)).reshape(dim, -1).T
+    if std > 0:
+        key = create_key(seed)
+        offsets = jax.random.normal(key, shape=centers.shape) * std
+        centers += offsets
+    return centers
+
+
+def globs(
+    centers: jnp.array,
+    sizes: tuple[int, ...] | int = 10,
+    stds: tuple[int, ...] | int = 1,
+    seed: Seed = None,
+    shuffle=True,
+):
+    """Generate points around centers."""
+    if isinstance(sizes, int):
+        sizes = (sizes,) * len(centers)
+
+    if isinstance(stds, int):
+        stds = (stds,) * len(centers)
 
     key = create_key(seed)
-    keys = jax.random.split(key, len(centers))
 
-    points = jnp.concatenate(
-        [
-            points_around(center, n_points=size, std=std, seed=key)
-            for center, size, key in zip(centers, sizes, keys, strict=True)
-        ],
-        axis=0,
-    )
+    n_centers = len(centers)
+    keys = jax.random.split(key, n_centers)
+    points = []
+
+    for center, size, std, key in zip(centers, sizes, stds, keys, strict=True):
+        ps = points_around(center, n_points=size, std=std, seed=key)
+        points.append(ps)
+
+    points = jnp.concatenate(points, axis=0)
 
     if shuffle:
-        key, subkey = jax.random.split(key)
+        subkey, subkey = jax.random.split(key)
         points = jax.random.permutation(subkey, points)
-
     return points
 
 
