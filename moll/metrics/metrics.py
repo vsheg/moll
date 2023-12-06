@@ -1,3 +1,7 @@
+"""
+This module contains implementations of various metrics for comparing vectors.
+"""
+
 import jax
 import jax.numpy as jnp
 from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
@@ -73,7 +77,6 @@ def tanimoto(a: jnp.ndarray, b: jnp.ndarray):
     >>> tanimoto(A([1, 1]), A([0, 0])).item()
     0.0
     """
-
     bitwise_or = jnp.bitwise_or(a, b).sum().astype(float)
     bitwise_and = jnp.bitwise_and(a, b).sum().astype(float)
 
@@ -91,5 +94,4 @@ def one_minus_tanimoto(a: jnp.ndarray, b: jnp.ndarray):
     """
     Computes the Tanimoto distance between two vectors.
     """
-
     return 1.0 - tanimoto(a, b)

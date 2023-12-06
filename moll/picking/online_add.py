@@ -1,3 +1,7 @@
+"""
+Online algorithm for adding points to a fixed-size set of points.
+"""
+
 from collections.abc import Callable
 
 import jax
@@ -14,7 +18,6 @@ def _needless_point_idx(
     """
     Find a point in `X` removing which would decrease the total potential the most.
     """
-
     dists = _pairwise_distances(X, dist_fn)
     potentials = jax.vmap(potential_fn)(dists)
     potentials = fill_diagonal(potentials, 0)  # replace diagonal elements with 0

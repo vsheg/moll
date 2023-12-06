@@ -1,3 +1,7 @@
+"""
+Online algorithm for picking a subset of points based on their distance.
+"""
+
 from collections.abc import Callable
 
 import jax.numpy as jnp

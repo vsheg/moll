@@ -1,3 +1,7 @@
+"""
+Utility functions for computing metrics.
+"""
+
 from collections.abc import Callable
 
 import jax
@@ -24,7 +28,6 @@ def _matrix_cross_sum(X: jnp.ndarray, i: int, j: int, row_only=False):
     """
     Compute the sum of the elements in the row `i` and the column `j` of the matrix `X`.
     """
-
     return lax.cond(
         row_only,
         lambda X: X[i, :].sum(),
