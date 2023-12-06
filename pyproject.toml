@@ -58,8 +58,10 @@ select = [
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
     "I",   # isort
+    "TCH", # flake8-type-checking 
 ]
 ignore = []
+pydocstyle.convention = "google"
 
 
 [[tool.poetry.source]]
