@@ -59,7 +59,7 @@ select = [
     "SIM", # flake8-simplify
     "I",   # isort
 ]
-ignore = ["F403"]
+ignore = []
 
 
 [[tool.poetry.source]]

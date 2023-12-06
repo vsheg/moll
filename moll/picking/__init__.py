@@ -1,3 +1,1 @@
-from .online_picker import OnlineDiversityPicker
-
-__all__ = ["OnlineDiversityPicker"]
+from .online_picker import *  # noqa: F403 (import *)
