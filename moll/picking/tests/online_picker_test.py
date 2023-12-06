@@ -6,9 +6,9 @@ import jax.numpy as jnp
 import pytest
 from sklearn import datasets  # type: ignore
 
-from moll.core.distance import euclidean, tanimoto
-from moll.core.diversity import OnlineDiversityPicker
-from moll.core.utils import generate_points, random_grid_points
+from ...metrics import euclidean, one_minus_tanimoto
+from ...utils.utils import generate_points, random_grid_points
+from ..online_picker import OnlineDiversityPicker
 
 RANDOM_SEED = 42
 
@@ -20,7 +20,7 @@ def picker_euclidean():
 
 @pytest.fixture
 def picker_tanimoto():
-    return OnlineDiversityPicker(capacity=5, dist_fn=tanimoto)
+    return OnlineDiversityPicker(capacity=5, dist_fn=one_minus_tanimoto)
 
 
 # Test that the picker API works as expected
@@ -31,9 +31,9 @@ def test_initialization(picker_euclidean):
     assert picker_euclidean.dim is None
 
 
-def test_append(picker_euclidean):
+def test_add(picker_euclidean):
     p = jnp.array([1, 2, 3])
-    picker_euclidean.append(jnp.array(p))
+    picker_euclidean.add(jnp.array(p))
     assert picker_euclidean.n_seen == 1
     assert picker_euclidean.n_accepted == 1
     assert picker_euclidean.points is not None
@@ -41,10 +41,10 @@ def test_append(picker_euclidean):
     assert (picker_euclidean.points[0] == p).all()
 
 
-def test_append_many(picker_euclidean):
+def test_add_many(picker_euclidean):
     p = jnp.array([1, 2, 3])
     for _ in range(10):
-        picker_euclidean.append(jnp.array(p))
+        picker_euclidean.add(jnp.array(p))
 
     assert picker_euclidean.n_seen == 10
     assert picker_euclidean.is_empty() is False
@@ -114,7 +114,7 @@ def n_batches(request):
     return request.param
 
 
-def test_append_many_random(picker, centers_and_points):
+def test_add_many_random(picker, centers_and_points):
     centers, points = centers_and_points
 
     assert picker.is_empty()
@@ -122,7 +122,7 @@ def test_append_many_random(picker, centers_and_points):
     # If labels are not provided, generate a placeholder for zip
 
     for point in points:
-        picker.append(point)
+        picker.add(point)
 
     selected_points = picker.points
 
@@ -142,7 +142,7 @@ def test_append_many_random(picker, centers_and_points):
         )
 
 
-def test_extend_many_random(picker, centers_and_points, n_batches):
+def test_update_many_random(picker, centers_and_points, n_batches):
     centers, points = centers_and_points
 
     assert picker.is_empty() is True
@@ -152,7 +152,7 @@ def test_extend_many_random(picker, centers_and_points, n_batches):
     n_accepted_total = 0
 
     for batch in batches:
-        n_accepted = picker.extend(batch)
+        n_accepted = picker.update(batch)
         assert n_accepted >= 0
         assert n_accepted <= picker.capacity
         n_accepted_total += n_accepted
@@ -172,7 +172,7 @@ def test_extend_many_random(picker, centers_and_points, n_batches):
         )
 
 
-def test_extend_same_points(picker_euclidean: OnlineDiversityPicker):
+def test_update_same_points(picker_euclidean: OnlineDiversityPicker):
     center1 = jnp.array([0, 0, 0])
     center2 = jnp.array([0, 10, 0])
     same_centers = [jnp.array([10, 10, 10]) for _ in range(10)]
@@ -183,7 +183,7 @@ def test_extend_same_points(picker_euclidean: OnlineDiversityPicker):
     n_accepted = 0
 
     for point in points:
-        n_accepted += picker_euclidean.append(point)
+        n_accepted += picker_euclidean.add(point)
 
     _selected_points = picker_euclidean.points
 
@@ -213,11 +213,11 @@ def circles(factor=0.1, random_state=42, n_samples=20):
     return points, labels
 
 
-def test_labels_append(picker_euclidean: OnlineDiversityPicker, circles):
+def test_labels_add(picker_euclidean: OnlineDiversityPicker, circles):
     points, labels = circles
 
-    for point, label in zip(points, labels):
-        picker_euclidean.append(point, label=label)
+    for point, label in zip(points, labels, strict=True):
+        picker_euclidean.add(point, label=label)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -226,10 +226,10 @@ def test_labels_append(picker_euclidean: OnlineDiversityPicker, circles):
     assert counts["small"] <= 1
 
 
-def test_manual_labels_extend(picker_euclidean: OnlineDiversityPicker, circles):
+def test_manual_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
     points, labels = circles
 
-    _n_accepted = picker_euclidean.extend(points, labels=labels)
+    _n_accepted = picker_euclidean.update(points, labels=labels)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -238,13 +238,13 @@ def test_manual_labels_extend(picker_euclidean: OnlineDiversityPicker, circles):
     assert counts["small"] <= 1
 
 
-def test_auto_labels_extend(picker_euclidean: OnlineDiversityPicker, circles):
+def test_auto_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
     points, _labels = circles
 
     large_circle_idxs = {idx for tag, idx in _labels if tag == "large"}
     small_circle_idxs = {idx for tag, idx in _labels if tag == "small"}
 
-    _n_accepted = picker_euclidean.extend(points)
+    _n_accepted = picker_euclidean.update(points)
 
     assert picker_euclidean.labels
     labels_generated = set(picker_euclidean.labels)
@@ -266,7 +266,7 @@ def test_tanimoto_picker(picker_tanimoto: OnlineDiversityPicker):
         ]
     )
 
-    picker_tanimoto.extend(points)
+    picker_tanimoto.update(points)
 
     assert picker_tanimoto.n_seen == len(points)
     assert picker_tanimoto.n_accepted == 5
@@ -284,8 +284,8 @@ def test_fast_init(picker_euclidean: OnlineDiversityPicker, circles, init_batch_
     labels_init = labels[:init_batch_size]
     labels = labels[init_batch_size:]
 
-    picker_euclidean.fast_init(batch_init, labels_init)
-    picker_euclidean.extend(batch, labels)
+    picker_euclidean.warm(batch_init, labels_init)
+    picker_euclidean.update(batch, labels)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)

@@ -2,6 +2,9 @@ render:
 	quarto render
 
 notebooks:
-	jupyter nbconvert --to notebook --execute --inplace notebooks/d*.ipynb
+	jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 
-.PHONY: render notebooks
+clean:
+	rm -rf .venv .mypy* .pytest* .coverage* coverage.xml htmlcov 
+
+.PHONY: render notebooks clean
