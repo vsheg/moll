@@ -36,14 +36,6 @@ def test_finalize_updates(array, expected):
     assert jnp.all(output_array == expected)
 
 
-def dummy_dist_fn(x, y):
-    return jnp.linalg.norm(x - y)
-
-
-def dummy_potential_fn(dist):
-    return dist**2
-
-
 # Test needless point search
 
 needless_point_idx = jax.jit(
@@ -71,7 +63,8 @@ def test_find_needless_point(array, expected):
 add_point = jax.jit(
     _add_point,
     static_argnames=[
-        "dist_fn",
+        "similarity_fn",
+        "potential_fn",
         "k_neighbors",
     ],
 )
@@ -96,9 +89,9 @@ def test_add_point(X):
     X_updated, is_accepted, updated_idx = add_point(
         x=x,
         X=X,
-        dist_fn=euclidean,
+        similarity_fn=euclidean,
+        potential_fn=lambda d: d**-1,
         k_neighbors=5,
-        power=2,
         n_valid_points=5,
         threshold=0.0,
     )
@@ -121,7 +114,7 @@ def test_add_point(X):
         ),
     ],
 )
-def test_add_points(X, xs, acc_mask):
+def test_update_points(X, xs, acc_mask):
     xs = jnp.array(xs)
     acc_mask = jnp.array(acc_mask)
     X_copy = X.copy()
@@ -129,9 +122,9 @@ def test_add_points(X, xs, acc_mask):
     _updated_idxs, X_updated, acceptance_mask = update_points(
         X=X,
         xs=xs,
-        dist_fn=euclidean,
+        similarity_fn=euclidean,
+        potential_fn=lambda d: d**-1,
         k_neighbors=5,
-        power=2,
         n_valid_points=5,
         threshold=0.0,
     )

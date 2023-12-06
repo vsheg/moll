@@ -43,9 +43,9 @@ def dists(x, X, dist_fn, n_valid, threshold=0.0):
 def _add_point(
     x: jnp.ndarray,
     X: jnp.ndarray,
-    dist_fn: Callable,
+    similarity_fn: Callable,
+    potential_fn: Callable,
     k_neighbors: int,
-    power: float,
     n_valid_points: int,
     threshold: float = 0.0,
     approx_min: bool = True,
@@ -80,7 +80,7 @@ def _add_point(
         N = jnp.concatenate((jnp.array([x]), X[k_closest_points_indices]))
 
         # Find a point in `N` removing which would decrease the total potential the most
-        needless_point_local_idx = _needless_point_idx(N, dist_fn, lambda d: d**-power)
+        needless_point_local_idx = _needless_point_idx(N, similarity_fn, potential_fn)
 
         # If the needless point is not `x`, replace it with `x`
         is_accepted = needless_point_local_idx > 0
@@ -99,7 +99,7 @@ def _add_point(
     is_full = X.shape[0] == n_valid_points
 
     is_above_threshold, dists_from_x_to_X, min_dist = dists(
-        x, X, dist_fn, n_valid_points, threshold=threshold
+        x, X, similarity_fn, n_valid_points, threshold=threshold
     )
 
     branches = [below_threshold, above_and_not_full, above_and_full]
@@ -135,10 +135,10 @@ def _update_points(
     *,
     X: jnp.ndarray,
     xs: jnp.ndarray,
-    dist_fn: Callable,
+    similarity_fn: Callable,
+    potential_fn: Callable,
     k_neighbors: int,
     threshold: float,
-    power: float,
     n_valid_points: int,
 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     assert xs.shape[0] > 0
@@ -152,10 +152,10 @@ def _update_points(
         X_updated, is_accepted, changed_item_idx = _add_point(
             xs[i],
             X,
-            dist_fn,
+            similarity_fn=similarity_fn,
+            potential_fn=potential_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
-            power=power,
             n_valid_points=n_valid_points,
         )
 
@@ -184,6 +184,6 @@ def _update_points(
 
 update_points = jax.jit(
     _update_points,
-    static_argnames=["dist_fn", "k_neighbors"],
+    static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
     donate_argnames=["X"],
 )

@@ -3,6 +3,7 @@ Online algorithm for picking a subset of points based on their distance.
 """
 
 from collections.abc import Callable
+from typing import Literal
 
 import jax.numpy as jnp
 from jaxtyping import Array
@@ -24,7 +25,8 @@ class OnlineDiversityPicker:
         similarity_fn: Callable[[Array, Array], float],
         *,
         potential_fn: Callable[[float], float]
-        p: float = 1.0,
+        | Literal["power", "exp", "lj"] = "power",
+        p: float = -1.0,
         k_neighbors: int | float = 5,
         threshold: float = 0.0,
         dtype: jnp.dtype | None = None,
@@ -35,6 +37,8 @@ class OnlineDiversityPicker:
         self.k_neighbors = self._init_k_neighbors(k_neighbors, capacity)
 
         self.p = p
+        self.potential_fn = self._init_potential_fn(potential_fn, self.p)
+
         self.threshold = threshold
 
         self._data: jnp.ndarray | None = None
@@ -66,6 +70,19 @@ class OnlineDiversityPicker:
                 )
 
         return k_neighbors
+
+    def _init_potential_fn(self, potential_fn, p) -> Callable[[float], float]:
+        match potential_fn:
+            case "power":
+                potential_fn = lambda d: d**p
+            case "exp":
+                potential_fn = lambda d: jnp.exp(p * d)
+            case "lj":
+                potential_fn = lambda d: (p / d) ** 12 - (p / d) ** 6
+                logger.warning(
+                    "Consider defining a suitable parameter `p` for the Lennard-Jones potential."
+                )
+        return potential_fn
 
     def _init_data(self, point: jnp.ndarray, label=None):
         """
@@ -120,9 +137,9 @@ class OnlineDiversityPicker:
             update_idxs, data_updated, acceptance_mask = update_points(
                 X=self._data,
                 xs=points,
-                dist_fn=self.similarity_fn,
+                similarity_fn=self.similarity_fn,
+                potential_fn=self.potential_fn,
                 k_neighbors=self.k_neighbors,
-                power=self.p,
                 threshold=self.threshold,
                 n_valid_points=self.n_valid_points,
             )
