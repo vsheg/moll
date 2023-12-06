@@ -57,8 +57,8 @@ def points_around(
 def generate_points(
     centers: jnp.ndarray,
     sizes: list,
-    seed: int,
-    radius: float | int = 1,
+    std: float | int = 1,
+    seed: Seed = None,
     shuffle: bool = True,
 ) -> jnp.ndarray:
     """
@@ -66,12 +66,12 @@ def generate_points(
     """
     assert len(centers) == len(sizes), "Number of centers and sizes must be the same"
 
-    key = jax.random.PRNGKey(seed)
+    key = create_key(seed)
     keys = jax.random.split(key, len(centers))
 
     points = jnp.concatenate(
         [
-            points_around(center, n_points=size, radius=radius, key=key)
+            points_around(center, n_points=size, std=std, seed=key)
             for center, size, key in zip(centers, sizes, keys, strict=True)
         ],
         axis=0,
@@ -88,8 +88,8 @@ def random_grid_points(
     n_points: int,
     dim: int,
     n_ticks: int,
-    seed: int,
     spacing: int = 1,
+    seed: Seed = None,
 ):
     """
     Generate random grid points.
@@ -98,7 +98,7 @@ def random_grid_points(
     grid = jnp.stack(jnp.meshgrid(*[ticks] * dim), axis=-1).reshape(-1, dim)
     # TODO: do not generate all possible grid points, just sample
 
-    key = jax.random.PRNGKey(seed)
+    key = create_key(seed)
     sample = jax.random.choice(key, grid, shape=(n_points,), replace=False)
     return sample
 
