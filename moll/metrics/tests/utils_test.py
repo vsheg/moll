@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from .utils import _matrix_cross_sum
+from ..utils import _matrix_cross_sum
 
 matrix_cross_sum = jax.jit(_matrix_cross_sum, static_argnames=["row_only"])
 
