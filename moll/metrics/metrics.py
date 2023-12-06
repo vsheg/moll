@@ -3,8 +3,9 @@ import jax.numpy as jnp
 
 __all__ = [
     "euclidean",
-    "one_minus_tanimoto",
+    "manhattan",
     "tanimoto",
+    "one_minus_tanimoto",
 ]
 
 
@@ -23,6 +24,23 @@ def euclidean(p1, p2):
     5.19615...
     """
     return jnp.linalg.norm(p1 - p2)
+
+
+@jax.jit
+def manhattan(p1, p2):
+    """
+    Computes the Manhattan distance between two vectors.
+
+    >>> manhattan(jnp.array([1, 2, 3]), jnp.array([1, 2, 3])).item()
+    0.0
+
+    >>> manhattan(jnp.array([1, 2, 3]), jnp.array([1, 2, 4])).item()
+    1.0
+
+    >>> manhattan(jnp.array([1, 2, 3]), jnp.array([4, 5, 6])).item()
+    9.0
+    """
+    return jnp.sum(jnp.abs(p1 - p2)).astype(float)
 
 
 @jax.jit
