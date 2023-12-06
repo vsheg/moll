@@ -9,6 +9,7 @@ import jax.numpy as jnp
 from jaxtyping import Array
 from loguru import logger
 
+from ..metrics import euclidean
 from .online_add import update_points
 
 __all__ = ["OnlineDiversityPicker"]
@@ -22,7 +23,7 @@ class OnlineDiversityPicker:
     def __init__(
         self,
         capacity: int,
-        similarity_fn: Callable[[Array, Array], float],
+        similarity_fn: Callable[[Array, Array], float] = euclidean,  # ???
         *,
         potential_fn: Callable[[float], float]
         | Literal["power", "exp", "lj"] = "power",
