@@ -1,9 +1,13 @@
-from typing import Callable
+"""
+Online algorithm for picking a subset of points based on their distance.
+"""
+
+from collections.abc import Callable
 
 import jax.numpy as jnp
 from loguru import logger
 
-from moll.core.distance import add_points_to_bag
+from .online_add import add_points
 
 __all__ = ["OnlineDiversityPicker"]
 
@@ -20,7 +24,7 @@ class OnlineDiversityPicker:
         k_neighbors: int = 5,
         p: float = 1.0,
         threshold: float = 0.0,
-        dtype: jnp.dtype = None,
+        dtype: jnp.dtype | None = None,
     ):
         self.capacity: int = capacity
         self.dist_fn = dist_fn
@@ -36,7 +40,7 @@ class OnlineDiversityPicker:
         self.n_accepted: int = 0
         self.n_valid_points: int = 0
 
-    def _init(self, point: jnp.ndarray, label=None) -> int:
+    def _init_data(self, point: jnp.ndarray, label=None):
         """
         Initialize the picker with the first point.
         """
@@ -51,7 +55,7 @@ class OnlineDiversityPicker:
         self.n_accepted += 1
         self.n_seen += 1
 
-    def extend(self, points: jnp.ndarray, labels=None) -> int:
+    def update(self, points: jnp.ndarray, labels=None) -> int:
         """
         Add a batch of points to the picker.
         """
@@ -78,7 +82,7 @@ class OnlineDiversityPicker:
         # Init if empty
 
         if was_empty := self.is_empty():
-            self._init(points[0], labels[0])
+            self._init_data(points[0], labels[0])
             points = points[1:]
             labels = labels[1:]
             n_accepted += 1
@@ -86,7 +90,7 @@ class OnlineDiversityPicker:
         # Process remaining points
 
         if points.shape[0] > 0:
-            update_idxs, data_updated, acceptance_mask = add_points_to_bag(
+            update_idxs, data_updated, acceptance_mask = add_points(
                 X=self._data,
                 xs=points,
                 dist_fn=self.dist_fn,
@@ -102,12 +106,12 @@ class OnlineDiversityPicker:
             n_updated = (
                 ((update_idxs >= 0) & (update_idxs <= last_valid_idx)).sum().item()
             )
-            n_appended = (update_idxs > last_valid_idx).sum().item()
-            self.n_valid_points += n_appended
-            n_accepted += n_appended + n_updated
+            n_added = (update_idxs > last_valid_idx).sum().item()
+            self.n_valid_points += n_added
+            n_accepted += n_added + n_updated
 
             # Update labels
-            for updated_idx, label in zip(update_idxs, labels):
+            for updated_idx, label in zip(update_idxs, labels, strict=True):
                 if updated_idx >= 0:
                     self._labels[updated_idx] = label
 
@@ -117,17 +121,17 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def append(self, point, label=None) -> bool:
+    def add(self, point, label=None) -> bool:
         """
         Add a point to the picker.
         """
         points = jnp.array([point])
         labels = [label] if label else None
-        n_accepted = self.extend(points, labels)
+        n_accepted = self.update(points, labels)
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def fast_init(self, points: jnp.ndarray, labels=None) -> int:
+    def warm(self, points: jnp.ndarray, labels=None):
         """
         Initialize the picker with a set of points.
         """
@@ -141,7 +145,7 @@ class OnlineDiversityPicker:
         else:
             labels = range(len(points))
 
-        self._init(points[0], labels[0])
+        self._init_data(points[0], labels[0])
 
         self._data = self._data.at[1:batch_size].set(points[1:])
         self._labels[1:batch_size] = labels[1:]

@@ -33,7 +33,7 @@ def generate_points(
     points = jnp.concatenate(
         [
             points_around(center, n_points=size, radius=radius, key=key)
-            for center, size, key in zip(centers, sizes, keys)
+            for center, size, key in zip(centers, sizes, keys, strict=True)
         ],
         axis=0,
     )
