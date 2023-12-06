@@ -1,5 +1,44 @@
+import time
+from typing import TypeAlias
+
 import jax
 import jax.numpy as jnp
+
+__all__ = [
+    "time_int_seed",
+    "time_key",
+    "create_key",
+    "points_around",
+    "grid_centers",
+    "globs",
+    "generate_points",
+    "random_grid_points",
+    "partition",
+    "fill_diagonal",
+]
+
+Seed: TypeAlias = int | jnp.ndarray | None
+
+
+def time_int_seed() -> int:
+    """Returns a number of microseconds since the epoch."""
+    return int(time.time() * 1e6)
+
+
+def time_key() -> jnp.ndarray:
+    """Returns a JAX PRNG key based on the current time."""
+    return jax.random.PRNGKey(time_int_seed())
+
+
+def create_key(seed: Seed = None) -> jnp.ndarray:
+    """
+    Create a JAX PRNG key from a seed.
+    """
+    if seed is None:
+        return time_key()
+    if isinstance(seed, int):
+        return jax.random.PRNGKey(seed)
+    return seed
 
 
 def points_around(
