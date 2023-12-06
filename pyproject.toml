@@ -4,6 +4,21 @@ version = "0.1.10"
 description = ""
 authors = ["Vsevolod Shegolev <v@sheg.cc>"]
 readme = "README.md"
+license = "LGPL-2.1-or-later"
+exclude = ["moll/**/tests/"]
+repository = "https://github.com/vsheg/moll"
+documentation = "https://vsheg.github.io/moll/"
+keywords = ["chemistry", "cheminformatics", "chemoinformatics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 
 
 [tool.poetry.dependencies]
