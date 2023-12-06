@@ -3,7 +3,7 @@ Online algorithm for picking a subset of points based on their distance.
 """
 
 from collections.abc import Callable
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import jax.numpy as jnp
 from jaxtyping import Array
@@ -14,6 +14,9 @@ from .online_add import update_points
 
 __all__ = ["OnlineDiversityPicker"]
 
+SimilarityFn: TypeAlias = Callable[[Array, Array], float]
+PotentialFn: TypeAlias = Callable[[float], float] | Literal["power", "exp", "lj"]
+
 
 class OnlineDiversityPicker:
     """
@@ -23,12 +26,11 @@ class OnlineDiversityPicker:
     def __init__(
         self,
         capacity: int,
-        similarity_fn: Callable[[Array, Array], float] = euclidean,  # ???
+        similarity_fn: SimilarityFn = euclidean,  # use str?
         *,
-        potential_fn: Callable[[float], float]
-        | Literal["power", "exp", "lj"] = "power",
+        potential_fn: PotentialFn = "power",
         p: float = -1.0,
-        k_neighbors: int | float = 5,
+        k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = 0.0,
         dtype: jnp.dtype | None = None,
     ):
