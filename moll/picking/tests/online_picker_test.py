@@ -216,7 +216,7 @@ def circles(factor=0.1, random_state=42, n_samples=20):
 def test_labels_add(picker_euclidean: OnlineDiversityPicker, circles):
     points, labels = circles
 
-    for point, label in zip(points, labels):
+    for point, label in zip(points, labels, strict=True):
         picker_euclidean.add(point, label=label)
 
     assert picker_euclidean.labels
