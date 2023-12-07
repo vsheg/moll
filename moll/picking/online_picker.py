@@ -12,8 +12,8 @@ from loguru import logger
 from ..metrics import (
     euclidean,
     manhattan,
-    minus_cosine,
     mismatches,
+    negative_cosine,
     one_minus_tanimoto,
 )
 from .online_add import update_points
@@ -21,7 +21,7 @@ from .online_add import update_points
 __all__ = ["OnlineDiversityPicker"]
 
 SimilarityFnLiteral = Literal[
-    "euclidean", "manhattan", "one_minus_tanimoto", "mismatches", "minus_cosine"
+    "euclidean", "manhattan", "one_minus_tanimoto", "mismatches", "negative_cosine"
 ]
 SimilarityFn: TypeAlias = Callable[[Array, Array], float] | SimilarityFnLiteral
 
@@ -98,8 +98,8 @@ class OnlineDiversityPicker:
                 return mismatches
             case "one_minus_tanimoto":
                 return one_minus_tanimoto
-            case "minus_cosine":
-                return minus_cosine
+            case "negative_cosine":
+                return negative_cosine
         return similarity_fn
 
     def _init_potential_fn(

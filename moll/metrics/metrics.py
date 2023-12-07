@@ -12,7 +12,7 @@ __all__ = [
     "manhattan",
     "euclidean",
     "cosine",
-    "minus_cosine",
+    "negative_cosine",
     "tanimoto",
     "one_minus_tanimoto",
 ]
@@ -87,7 +87,7 @@ def cosine(a: Real, b: Real):
 
 
 # TODO: maybe: negative_cosine ?
-def minus_cosine(a: Real, b: Real):
+def negative_cosine(a: Real, b: Real):
     """
     Computes the cosine distance between two vectors.
     """
