@@ -5,6 +5,7 @@ from typing import TypeAlias
 import jax
 import jax.numpy as jnp
 from jax import lax
+from jaxtyping import Array
 
 __all__ = [
     "time_int_seed",
@@ -44,7 +45,7 @@ def create_key(seed: Seed = None) -> jnp.ndarray:
     return seed
 
 
-def cap_vector(vector: jnp.array, max_length: float):
+def cap_vector(vector: Array, max_length: float):
     """Truncate a vector to a maximum length."""
     length = jnp.linalg.norm(vector)
 
@@ -92,7 +93,7 @@ def grid_centers(
 
 
 def globs(
-    centers: jnp.array,
+    centers: Array,
     sizes: tuple[int, ...] | int = 10,
     stds: tuple[float, ...] | float = 1,
     seed: Seed = None,

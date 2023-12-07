@@ -5,10 +5,11 @@ from typing import get_args
 import jax
 import jax.numpy as jnp
 import pytest
+from jaxtyping import Array, Int
 from sklearn import datasets
 
 from ...metrics import euclidean, one_minus_tanimoto
-from ...utils import dists, dists_to_nearest_neighbor, globs, random_grid_points
+from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from ..online_picker import OnlineDiversityPicker, PotentialFnLiteral
 
 RANDOM_SEED = 42
@@ -130,7 +131,7 @@ def centers_and_points(centers, request, seed=RANDOM_SEED):
     # sizes of smallest and biggest clusters
     smallest, biggest = request.param
 
-    sizes = jnp.linspace(smallest, biggest, num=len(centers), dtype=int)
+    sizes: Int = jnp.linspace(smallest, biggest, num=len(centers), dtype=int)
     return centers, globs(centers, sizes=sizes, stds=0.5, cap_radius=1, seed=seed)
 
 

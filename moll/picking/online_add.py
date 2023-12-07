@@ -7,6 +7,7 @@ from collections.abc import Callable
 import jax
 import jax.numpy as jnp
 from jax import lax
+from jaxtyping import Array
 
 from ..metrics.utils import _matrix_cross_sum, _pairwise_distances
 from ..utils.utils import fill_diagonal
@@ -36,7 +37,7 @@ def _needless_point_idx(
 def dists(x, X, dist_fn, n_valid, threshold=0.0):
     ds = jax.vmap(dist_fn, in_axes=(None, 0))(x, X)
     mask = jnp.arange(X.shape[0]) < n_valid
-    ds = jnp.where(mask, ds, jnp.inf)
+    ds: Array = jnp.where(mask, ds, jnp.inf)
     return ds.min() > threshold, ds, ds.min()
 
 
