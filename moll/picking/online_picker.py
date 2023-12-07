@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Literal, TypeAlias
 
 import jax.numpy as jnp
-from jaxtyping import Array
+from jaxtyping import Array, Float
 from loguru import logger
 
 from ..metrics import euclidean
@@ -16,7 +16,7 @@ __all__ = ["OnlineDiversityPicker"]
 
 SimilarityFn: TypeAlias = Callable[[Array, Array], float]
 
-PotentialFnLiteral = Literal["power", "exp", "lj"]
+PotentialFnLiteral = Literal["hyperbolic", "exp", "lj"]
 PotentialFn: TypeAlias = Callable[[float], float] | PotentialFnLiteral
 
 
@@ -30,8 +30,8 @@ class OnlineDiversityPicker:
         capacity: int,
         similarity_fn: SimilarityFn = euclidean,  # use str?
         *,
-        potential_fn: PotentialFn = "power",
-        p: float = -1.0,
+        potential_fn: PotentialFn = "hyperbolic",
+        p: float = 1.0,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = 0.0,
         dtype: jnp.dtype | None = None,
@@ -76,24 +76,21 @@ class OnlineDiversityPicker:
 
         return k_neighbors
 
-    def _init_potential_fn(self, potential_fn, p) -> Callable[[float], float]:
+    def _init_potential_fn(self, potential_fn, p) -> Callable[[float], Float]:
         match potential_fn:
-            case "power":
-                potential_fn = lambda d: d**p
+            case "hyperbolic":
+                return lambda d: jnp.power(d, -p)
             case "exp":
-                potential_fn = lambda d: jnp.exp(p * d)
+                return lambda d: jnp.exp(-p * d)
             case "lj":
-                sigma = abs(p) * 0.5 ** (1.0 / 6)
-                potential_fn = lambda d: jnp.power(sigma / d, 12.0) - jnp.power(
-                    sigma / d, 6.0
+                sigma = p * 0.5 ** (1.0 / 6)
+                return lambda d: (
+                    jnp.power(sigma / d, 12.0) - jnp.power(sigma / d, 6.0)
                 )
         return potential_fn
 
     def _init_data(self, point: jnp.ndarray, label=None):
-        """
-        Initialize the picker with the first point.
-        """
-
+        """Initialize the picker with the first point."""
         dim = point.shape[0]
         self.dtype = point.dtype
         self._data = jnp.zeros((self.capacity, dim), dtype=self.dtype)
@@ -195,8 +192,7 @@ class OnlineDiversityPicker:
             labels = range(len(points))
 
         self._init_data(points[0], labels[0])
-
-        self._data = self._data.at[1:batch_size].set(points[1:])
+        self._data = self._data.at[1:batch_size].set(points[1:])  # type: ignore
         self._labels[1:batch_size] = labels[1:]
 
         self.n_accepted += batch_size - 1
