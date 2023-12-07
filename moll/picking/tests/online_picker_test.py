@@ -1,5 +1,6 @@
 from collections import Counter
 from random import shuffle
+from typing import get_args
 
 import jax
 import jax.numpy as jnp
@@ -7,8 +8,8 @@ import pytest
 from sklearn import datasets
 
 from ...metrics import euclidean, one_minus_tanimoto
-from ...utils.utils import generate_points, random_grid_points
-from ..online_picker import OnlineDiversityPicker
+from ...utils import dists, dists_to_nearest_neighbor, globs, random_grid_points
+from ..online_picker import OnlineDiversityPicker, PotentialFnLiteral
 
 RANDOM_SEED = 42
 
@@ -130,7 +131,7 @@ def centers_and_points(centers, request, seed=RANDOM_SEED):
     smallest, biggest = request.param
 
     sizes = jnp.linspace(smallest, biggest, num=len(centers), dtype=int)
-    return centers, generate_points(centers, sizes=sizes, radius=1, seed=seed)
+    return centers, globs(centers, sizes=sizes, stds=0.5, cap_radius=1, seed=seed)
 
 
 @pytest.fixture(
@@ -318,3 +319,30 @@ def test_fast_init(picker_euclidean: OnlineDiversityPicker, circles, init_batch_
 
     assert counts["large"] >= 4
     assert counts["small"] <= 1
+
+
+# Test custom potential function
+
+
+# Possible potential functions are stored in the type hint
+potential_fns: tuple[str, ...] = get_args(PotentialFnLiteral)
+
+
+@pytest.fixture(params=potential_fns)
+def picker_potential_fn(request):
+    return OnlineDiversityPicker(
+        capacity=10,
+        potential_fn=request.param,
+    )
+
+
+@pytest.fixture
+def uniform_rectangle():
+    return jax.random.uniform(jax.random.PRNGKey(0), (1000, 2))
+
+
+def test_custom_potential_fn(picker_potential_fn, uniform_rectangle):
+    picker = picker_potential_fn
+    picker.update(uniform_rectangle)
+    min_dists = dists_to_nearest_neighbor(picker.points, euclidean)
+    assert (min_dists > 0.2).all()

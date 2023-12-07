@@ -15,7 +15,9 @@ from .online_add import update_points
 __all__ = ["OnlineDiversityPicker"]
 
 SimilarityFn: TypeAlias = Callable[[Array, Array], float]
-PotentialFn: TypeAlias = Callable[[float], float] | Literal["power", "exp", "lj"]
+
+PotentialFnLiteral = Literal["power", "exp", "lj"]
+PotentialFn: TypeAlias = Callable[[float], float] | PotentialFnLiteral
 
 
 class OnlineDiversityPicker:
@@ -81,9 +83,9 @@ class OnlineDiversityPicker:
             case "exp":
                 potential_fn = lambda d: jnp.exp(p * d)
             case "lj":
-                potential_fn = lambda d: (p / d) ** 12 - (p / d) ** 6
-                logger.warning(
-                    "Consider defining a suitable parameter `p` for the Lennard-Jones potential."
+                sigma = abs(p) * 0.5 ** (1.0 / 6)
+                potential_fn = lambda d: jnp.power(sigma / d, 12.0) - jnp.power(
+                    sigma / d, 6.0
                 )
         return potential_fn
 
