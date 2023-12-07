@@ -5,6 +5,7 @@ This module contains implementations of various metrics for comparing vectors.
 import jax
 import jax.numpy as jnp
 from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
+from jaxtyping import Bool, Real
 
 __all__ = [
     "mismatches",
@@ -17,7 +18,7 @@ __all__ = [
 
 
 @jax.jit
-def mismatches(p1, p2):
+def mismatches(p1: Real | Bool, p2: Real | Bool):
     """
     Computes the L0-norm distance between two vectors.
 
@@ -34,7 +35,7 @@ def mismatches(p1, p2):
 
 
 @jax.jit
-def manhattan(p1, p2):
+def manhattan(p1: Real, p2: Real):
     """
     Computes the Manhattan distance between two vectors.
 
@@ -51,7 +52,7 @@ def manhattan(p1, p2):
 
 
 @jax.jit
-def euclidean(p1, p2):
+def euclidean(p1: Real, p2: Real):
     """
     Computes the Euclidean distance between two vectors.
 
@@ -85,7 +86,7 @@ def cosine(a: jnp.ndarray, b: jnp.ndarray):
 
 
 @jax.jit
-def tanimoto(a: jnp.ndarray, b: jnp.ndarray):
+def tanimoto(a: Bool, b: Bool):
     """
     Computes the Tanimoto coefficient between two vectors.
 
@@ -108,7 +109,7 @@ def tanimoto(a: jnp.ndarray, b: jnp.ndarray):
 
 
 @jax.jit
-def one_minus_tanimoto(a: jnp.ndarray, b: jnp.ndarray):
+def one_minus_tanimoto(a: Bool, b: Bool):
     """
     Computes the Tanimoto distance between two vectors.
     """
