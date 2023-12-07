@@ -1,8 +1,10 @@
 import time
+from functools import partial
 from typing import TypeAlias
 
 import jax
 import jax.numpy as jnp
+from jax import lax
 
 __all__ = [
     "time_int_seed",
@@ -14,6 +16,8 @@ __all__ = [
     "random_grid_points",
     "partition",
     "fill_diagonal",
+    "dists",
+    "dists_to_nearest_neighbor",
 ]
 
 Seed: TypeAlias = int | jnp.ndarray | None
@@ -40,16 +44,31 @@ def create_key(seed: Seed = None) -> jnp.ndarray:
     return seed
 
 
+def cap_vector(vector: jnp.array, max_length: float):
+    """Truncate a vector to a maximum length."""
+    length = jnp.linalg.norm(vector)
+
+    return lax.cond(
+        length <= max_length,
+        lambda v: v,
+        lambda v: v / length * max_length,
+        vector,
+    )
+
+
 def points_around(
     center: jnp.ndarray,
     n_points: int,
-    seed: Seed = None,
     std: float = 1,
+    cap_radius: float | None = None,
+    seed: Seed = None,
 ):
     """Generate points around a center."""
     key = create_key(seed)
     dim = len(center)
     offsets = jax.random.normal(key, shape=(n_points, dim)) * std
+    if cap_radius is not None:
+        offsets = jax.vmap(cap_vector, in_axes=(0, None))(offsets, cap_radius)
     return center + offsets
 
 
@@ -75,15 +94,16 @@ def grid_centers(
 def globs(
     centers: jnp.array,
     sizes: tuple[int, ...] | int = 10,
-    stds: tuple[int, ...] | int = 1,
+    stds: tuple[float, ...] | float = 1,
     seed: Seed = None,
+    cap_radius: float | None = None,
     shuffle=True,
 ):
     """Generate points around centers."""
     if isinstance(sizes, int):
         sizes = (sizes,) * len(centers)
 
-    if isinstance(stds, int):
+    if isinstance(stds, float | int):
         stds = (stds,) * len(centers)
 
     key = create_key(seed)
@@ -93,7 +113,9 @@ def globs(
     points = []
 
     for center, size, std, key in zip(centers, sizes, stds, keys, strict=True):
-        ps = points_around(center, n_points=size, std=std, seed=key)
+        ps = points_around(
+            center, n_points=size, std=std, cap_radius=cap_radius, seed=key
+        )
         points.append(ps)
 
     points = jnp.concatenate(points, axis=0)
@@ -140,3 +162,21 @@ def fill_diagonal(array: jnp.ndarray, val: float | int):
     assert array.ndim >= 2
     i, j = jnp.diag_indices(min(array.shape[-2:]))
     return array.at[..., i, j].set(val)
+
+
+@partial(jax.jit, static_argnames="dist_fn")
+def dists(points, dist_fn):
+    """Compute pairwise distances between points."""
+    expanded_points = jnp.expand_dims(points, axis=1)
+    distances = jax.vmap(jax.vmap(dist_fn, in_axes=(None, 0)), in_axes=(0, None))(
+        points, expanded_points
+    )
+    return distances
+
+
+@partial(jax.jit, static_argnames="dist_fn")
+def dists_to_nearest_neighbor(points, dist_fn):
+    """Compute pairwise distances between points."""
+    dists_ = dists(points, dist_fn)
+    dists_ = fill_diagonal(dists_, jnp.inf)
+    return jnp.min(dists_, axis=0)
