@@ -10,6 +10,7 @@ __all__ = [
     "mismatches",
     "manhattan",
     "euclidean",
+    "cosine",
     "tanimoto",
     "one_minus_tanimoto",
 ]
@@ -64,6 +65,23 @@ def euclidean(p1, p2):
     5.19615...
     """
     return jnp.linalg.norm(p1 - p2)
+
+
+@jax.jit
+def cosine(a: jnp.ndarray, b: jnp.ndarray):
+    """
+    Computes the cosine distance between two vectors.
+
+    >>> cosine(A([1, 0]), A([1, 0])).item()
+    1.0
+
+    >>> cosine(A([1, 0]), A([0, 1])).item()
+    0.0
+
+    >>> cosine(A([1, 0]), A([-1, 0])).item()
+    -1.0
+    """
+    return jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))
 
 
 @jax.jit
