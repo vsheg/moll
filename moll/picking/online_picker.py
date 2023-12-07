@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Literal, TypeAlias
 
 import jax.numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, DTypeLike, Float
 from loguru import logger
 
 from ..metrics import (
@@ -42,8 +42,8 @@ class OnlineDiversityPicker:
         potential_fn: PotentialFn = "hyperbolic",
         p: float = 1.0,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
-        threshold: float = -jnp.inf,  # TODO
-        dtype: jnp.dtype | None = None,
+        threshold: float = -jnp.inf,
+        dtype: DTypeLike | None = None,
     ):
         self.capacity = capacity
 
@@ -56,8 +56,8 @@ class OnlineDiversityPicker:
 
         self.threshold = threshold
 
-        self._data: jnp.ndarray | None = None
-        self.dtype: jnp.dtype | None = dtype
+        self._data: Array | None = None
+        self.dtype: DTypeLike | None = dtype
         self._labels: list = [None] * capacity
 
         self.n_seen: int = 0
@@ -119,7 +119,7 @@ class OnlineDiversityPicker:
                 return lambda d: jnp.where(d > 0, -jnp.log(p * d), jnp.inf)
         return potential_fn
 
-    def _init_data(self, point: jnp.ndarray, label=None):
+    def _init_data(self, point: Array, label=None):
         """Initialize the picker with the first point."""
         dim = point.shape[0]
         self.dtype = point.dtype
@@ -131,7 +131,7 @@ class OnlineDiversityPicker:
         self.n_accepted += 1
         self.n_seen += 1
 
-    def update(self, points: jnp.ndarray, labels=None) -> int:
+    def update(self, points: Array, labels=None) -> int:
         """
         Add a batch of points to the picker.
         """
@@ -197,7 +197,7 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def add(self, point, label=None) -> bool:
+    def add(self, point: Array, label=None) -> bool:
         """
         Add a point to the picker.
         """
@@ -207,7 +207,7 @@ class OnlineDiversityPicker:
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def warm(self, points: jnp.ndarray, labels=None):
+    def warm(self, points: Array, labels=None):
         """
         Initialize the picker with a set of points.
         """
