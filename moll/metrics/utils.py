@@ -24,10 +24,18 @@ def _pairwise_distances(X, dist_fn: Callable):
     return dists
 
 
-def _matrix_cross_sum(X: jnp.ndarray, i: int, j: int, row_only=False):
+def _matrix_cross_sum(X: jnp.ndarray, i: int, j: int, row_only=False, crossover=True):
     """
     Compute the sum of the elements in the row `i` and the column `j` of the matrix `X`.
     """
+
+    X = lax.cond(
+        crossover,
+        lambda X: X,
+        lambda X: X.at[i, j].set(0),
+        X,
+    )
+
     return lax.cond(
         row_only,
         lambda X: X[i, :].sum(),
