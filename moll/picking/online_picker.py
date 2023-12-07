@@ -9,14 +9,23 @@ import jax.numpy as jnp
 from jaxtyping import Array, Float
 from loguru import logger
 
-from ..metrics import euclidean
+from ..metrics import (
+    euclidean,
+    manhattan,
+    minus_cosine,
+    mismatches,
+    one_minus_tanimoto,
+)
 from .online_add import update_points
 
 __all__ = ["OnlineDiversityPicker"]
 
-SimilarityFn: TypeAlias = Callable[[Array, Array], float]
+SimilarityFnLiteral = Literal[
+    "euclidean", "manhattan", "one_minus_tanimoto", "mismatches", "minus_cosine"
+]
+SimilarityFn: TypeAlias = Callable[[Array, Array], float] | SimilarityFnLiteral
 
-PotentialFnLiteral = Literal["hyperbolic", "exp", "lj"]
+PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
 PotentialFn: TypeAlias = Callable[[float], float] | PotentialFnLiteral
 
 
@@ -28,16 +37,17 @@ class OnlineDiversityPicker:
     def __init__(
         self,
         capacity: int,
-        similarity_fn: SimilarityFn = euclidean,  # use str?
+        similarity_fn: SimilarityFn = "euclidean",
         *,
         potential_fn: PotentialFn = "hyperbolic",
         p: float = 1.0,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
-        threshold: float = 0.0,
+        threshold: float = -jnp.inf,  # TODO
         dtype: jnp.dtype | None = None,
     ):
         self.capacity = capacity
-        self.similarity_fn = similarity_fn
+
+        self.similarity_fn = self._init_similarity_fn(similarity_fn)
 
         self.k_neighbors = self._init_k_neighbors(k_neighbors, capacity)
 
@@ -76,10 +86,28 @@ class OnlineDiversityPicker:
 
         return k_neighbors
 
-    def _init_potential_fn(self, potential_fn, p) -> Callable[[float], Float]:
+    def _init_similarity_fn(
+        self, similarity_fn: SimilarityFn
+    ) -> Callable[[Array, Array], float]:
+        match similarity_fn:
+            case "euclidean":
+                return euclidean
+            case "manhattan":
+                return manhattan
+            case "mismatches":
+                return mismatches
+            case "one_minus_tanimoto":
+                return one_minus_tanimoto
+            case "minus_cosine":
+                return minus_cosine
+        return similarity_fn
+
+    def _init_potential_fn(
+        self, potential_fn: PotentialFn, p: float
+    ) -> Callable[[float], Float]:
         match potential_fn:
             case "hyperbolic":
-                return lambda d: jnp.power(d, -p)
+                return lambda d: jnp.where(d > 0, jnp.power(d, -p), jnp.inf)
             case "exp":
                 return lambda d: jnp.exp(-p * d)
             case "lj":
@@ -87,6 +115,8 @@ class OnlineDiversityPicker:
                 return lambda d: (
                     jnp.power(sigma / d, 12.0) - jnp.power(sigma / d, 6.0)
                 )
+            case "log":
+                return lambda d: jnp.where(d > 0, -jnp.log(p * d), jnp.inf)
         return potential_fn
 
     def _init_data(self, point: jnp.ndarray, label=None):

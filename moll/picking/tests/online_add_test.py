@@ -1,3 +1,5 @@
+import dis
+
 import jax
 import jax.numpy as jnp
 import pytest
@@ -52,9 +54,17 @@ needless_point_idx = jax.jit(
         ([(0.1, 0.1), (0, 0), (1, 1)], 0),
     ],
 )
-def test_find_needless_point(array, expected):
+@pytest.mark.parametrize(
+    "dist_fn",
+    [
+        euclidean,
+        lambda x, y: euclidean(x, y) - 10,  # negative distance is ok
+    ],
+)
+def test_find_needless_point(array, expected, dist_fn):
     array = jnp.array(array)
-    idx = needless_point_idx(array, euclidean, lambda x: x**-2)
+    # exp potential is used to treat negative distances
+    idx = needless_point_idx(array, dist_fn, lambda d: jnp.exp(-d))
     assert idx == expected
 
 
@@ -84,16 +94,24 @@ def X():
     )
 
 
-def test_add_point(X):
+@pytest.mark.parametrize(
+    "similarity_fn",
+    [
+        euclidean,
+        lambda x, y: euclidean(x, y) + 10,
+        lambda x, y: euclidean(x, y) - 10,
+    ],
+)
+def test_add_point(X, similarity_fn):
     x = jnp.array([4.3, 4.3])
     X_updated, is_accepted, updated_idx = add_point(
         x=x,
         X=X,
-        similarity_fn=euclidean,
-        potential_fn=lambda d: d**-1,
+        similarity_fn=similarity_fn,
+        potential_fn=lambda d: jnp.exp(-d),
         k_neighbors=5,
         n_valid_points=5,
-        threshold=0.0,
+        threshold=-jnp.inf,
     )
     assert is_accepted
     assert updated_idx == 4

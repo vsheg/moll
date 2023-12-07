@@ -21,7 +21,10 @@ def _needless_point_idx(
     """
     dists = _pairwise_distances(X, dist_fn)
     potentials = jax.vmap(potential_fn)(dists)
-    potentials = fill_diagonal(potentials, 0)  # replace diagonal elements with 0
+    # Inherent potential of a point is 0, it means that the point by itself does not
+    # contribute to the total potential. In the future, the penalty for the point itself
+    # can be added
+    potentials = fill_diagonal(potentials, 0)
 
     # Compute potential decrease for each point
     deltas = jax.vmap(lambda i: _matrix_cross_sum(potentials, i, i, row_only=True))(
@@ -48,7 +51,7 @@ def _add_point(
     potential_fn: Callable,
     k_neighbors: int,
     n_valid_points: int,
-    threshold: float = 0.0,
+    threshold: float,
     approx_min: bool = True,
 ) -> tuple[jnp.ndarray, bool, int]:
     """
@@ -56,7 +59,7 @@ def _add_point(
     of the replaced point (or -1 if no point was replaced).
     """
 
-    def below_threshold(X):
+    def below_threshold_or_infinite_potential(X):
         return X, False, -1
 
     def above_and_not_full(X):
@@ -103,8 +106,18 @@ def _add_point(
         x, X, similarity_fn, n_valid_points, threshold=threshold
     )
 
-    branches = [below_threshold, above_and_not_full, above_and_full]
-    branch_idx = 0 + is_above_threshold + (is_full & is_above_threshold)
+    is_potential_infinite = jnp.isinf(potential_fn(min_dist))
+
+    branches = [
+        below_threshold_or_infinite_potential,
+        above_and_not_full,
+        above_and_full,
+    ]
+    branch_idx = (
+        0
+        + (is_above_threshold & ~is_potential_infinite)
+        + (is_full & is_above_threshold)
+    )
 
     return lax.switch(branch_idx, branches, X)
 

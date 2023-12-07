@@ -10,7 +10,11 @@ from sklearn import datasets
 
 from ...metrics import euclidean, one_minus_tanimoto
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
-from ..online_picker import OnlineDiversityPicker, PotentialFnLiteral
+from ..online_picker import (
+    OnlineDiversityPicker,
+    PotentialFnLiteral,
+    SimilarityFnLiteral,
+)
 
 RANDOM_SEED = 42
 
@@ -18,11 +22,6 @@ RANDOM_SEED = 42
 @pytest.fixture
 def picker_euclidean():
     return OnlineDiversityPicker(capacity=5, similarity_fn=euclidean)
-
-
-@pytest.fixture
-def picker_tanimoto():
-    return OnlineDiversityPicker(capacity=5, similarity_fn=one_minus_tanimoto)
 
 
 # Test that the picker API works as expected
@@ -281,23 +280,7 @@ def test_auto_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
     assert small_circle_idxs & labels_generated == set()
 
 
-def test_tanimoto_picker(picker_tanimoto: OnlineDiversityPicker):
-    points = jnp.array(
-        [
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [1, 0, 0, 0],
-            [1, 1, 0, 0],
-            [0, 1, 1, 0],
-        ]
-    )
-
-    picker_tanimoto.update(points)
-
-    assert picker_tanimoto.n_seen == len(points)
-    assert picker_tanimoto.n_accepted == 5
+# Test warm start
 
 
 @pytest.mark.parametrize(
@@ -322,28 +305,80 @@ def test_fast_init(picker_euclidean: OnlineDiversityPicker, circles, init_batch_
     assert counts["small"] <= 1
 
 
-# Test custom potential function
+# Test picker custom similarity functions
+
+similarity_fns: tuple = get_args(SimilarityFnLiteral) + (
+    lambda x, y: euclidean(x, y) + 10,  # similarities must me ordered, shift is ok
+    lambda x, y: euclidean(x, y) - 10,  # similarities must me ordered, negative is ok
+)
 
 
-# Possible potential functions are stored in the type hint
-potential_fns: tuple[str, ...] = get_args(PotentialFnLiteral)
-
-
-@pytest.fixture(params=potential_fns)
-def picker_potential_fn(request):
+@pytest.fixture(params=similarity_fns)
+def picker_similarity_fn(request):
+    similarity_fn = request.param
     return OnlineDiversityPicker(
-        capacity=10,
-        potential_fn=request.param,
+        capacity=5,
+        similarity_fn=similarity_fn,
+        potential_fn="exp",  # exp potential is used to treat negative similarities
     )
 
 
 @pytest.fixture
-def uniform_rectangle():
-    return jax.random.uniform(jax.random.PRNGKey(0), (1000, 2))
+def integer_vectors(n_points=1_000, dim=10, seed: int = RANDOM_SEED):
+    return jax.random.randint(
+        jax.random.PRNGKey(seed),
+        shape=(n_points, dim),
+        minval=-2,
+        maxval=2,
+    )
+
+
+def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
+    picker_similarity_fn.update(integer_vectors)
+
+    assert picker_similarity_fn.n_seen == len(integer_vectors)
+    assert picker_similarity_fn.n_accepted == 5
+
+    min_dist_orig = dists_to_nearest_neighbor(integer_vectors, euclidean).min()
+    min_dist_new = dists_to_nearest_neighbor(
+        picker_similarity_fn.points, euclidean
+    ).min()
+
+    # Check that the min pairwise distance is increased by at least a factor:
+    factor = 1.5
+
+    assert (min_dist_new > factor * min_dist_orig).all()
+
+
+# Test custom potential functions
+
+
+potential_fns: tuple = get_args(PotentialFnLiteral) + (
+    lambda d: jnp.exp(d),  # potentials must me ordered, negative is ok
+)
+
+
+@pytest.fixture(params=potential_fns)
+def picker_potential_fn(request):
+    potential_fn = request.param
+    return OnlineDiversityPicker(capacity=5, potential_fn=potential_fn)
+
+
+@pytest.fixture
+def uniform_rectangle(n_points=1_000, dim=2, seed: int = RANDOM_SEED):
+    return jax.random.uniform(jax.random.PRNGKey(RANDOM_SEED), (n_points, dim))
 
 
 def test_custom_potential_fn(picker_potential_fn, uniform_rectangle):
     picker = picker_potential_fn
     picker.update(uniform_rectangle)
-    min_dists = dists_to_nearest_neighbor(picker.points, euclidean)
-    assert (min_dists > 0.2).all()
+
+    min_dist_orig = dists_to_nearest_neighbor(uniform_rectangle, euclidean).min()
+    min_dist_new = dists_to_nearest_neighbor(
+        picker_potential_fn.points, euclidean
+    ).min()
+
+    # Check that the min pairwise distance is increased by at least a factor:
+    factor = 1.5
+
+    assert (min_dist_new > factor * min_dist_orig).all()
