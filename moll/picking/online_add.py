@@ -3,14 +3,17 @@ Online algorithm for adding points to a fixed-size set of points.
 """
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
 from jax import lax
-from jaxtyping import Array
 
 from ..metrics.utils import _matrix_cross_sum, _pairwise_distances
 from ..utils.utils import fill_diagonal
+
+if TYPE_CHECKING:
+    from jaxtyping import Array
 
 
 def _needless_point_idx(

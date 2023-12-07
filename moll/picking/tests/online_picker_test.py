@@ -5,7 +5,7 @@ from typing import get_args
 import jax
 import jax.numpy as jnp
 import pytest
-from jaxtyping import Array, Int
+from jaxtyping import Int
 from sklearn import datasets
 
 from ...metrics import euclidean, one_minus_tanimoto
