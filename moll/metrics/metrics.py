@@ -12,6 +12,7 @@ __all__ = [
     "manhattan",
     "euclidean",
     "cosine",
+    "minus_cosine",
     "tanimoto",
     "one_minus_tanimoto",
 ]
@@ -69,7 +70,7 @@ def euclidean(p1: Real, p2: Real):
 
 
 @jax.jit
-def cosine(a: jnp.ndarray, b: jnp.ndarray):
+def cosine(a: Real, b: Real):
     """
     Computes the cosine distance between two vectors.
 
@@ -82,7 +83,15 @@ def cosine(a: jnp.ndarray, b: jnp.ndarray):
     >>> cosine(A([1, 0]), A([-1, 0])).item()
     -1.0
     """
-    return jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))
+    return (jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))).astype(float)
+
+
+# TODO: maybe: negative_cosine ?
+def minus_cosine(a: Real, b: Real):
+    """
+    Computes the cosine distance between two vectors.
+    """
+    return -cosine(a, b)
 
 
 @jax.jit
