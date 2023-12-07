@@ -26,6 +26,7 @@ python = ">=3.10,<3.13"
 rdkit = "^2023.3.1"
 loguru = "^0.7.2"
 jax = { version = "^0.4.20", extras = ["cpu"], optional = true }
+jaxtyping = "^0.2.24"
 
 [tool.poetry.extras]
 cpu = ["jax"]
