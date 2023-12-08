@@ -2,9 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Python Debug",
             "type": "python",
             "request": "launch",
+            "console": "integratedTerminal",
             "pythonArgs": [
                 "-Xfrozen_modules=off"
             ],
