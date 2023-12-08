@@ -112,9 +112,13 @@ class OnlineDiversityPicker:
             case "exp":
                 return lambda d: jnp.exp(-p * d)
             case "lj":
-                sigma = p * 0.5 ** (1.0 / 6)
+                sigma: float = p * 0.5 ** (1 / 6)
                 return lambda d: (
-                    jnp.power(sigma / d, 12.0) - jnp.power(sigma / d, 6.0)
+                    jnp.where(
+                        d > 0,
+                        jnp.power(sigma / d, 12.0) - jnp.power(sigma / d, 6.0),
+                        jnp.inf,
+                    )
                 )
             case "log":
                 return lambda d: jnp.where(d > 0, -jnp.log(p * d), jnp.inf)
