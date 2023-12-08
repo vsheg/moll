@@ -17,7 +17,7 @@ __all__ = [
     "random_grid_points",
     "partition",
     "fill_diagonal",
-    "dists",
+    "dist_matrix",
     "dists_to_nearest_neighbor",
 ]
 
@@ -166,7 +166,7 @@ def fill_diagonal(array: jnp.ndarray, val: float | int):
 
 
 @partial(jax.jit, static_argnames="dist_fn")
-def dists(points, dist_fn):
+def dist_matrix(points, dist_fn):
     """Compute pairwise distances between points."""
     expanded_points = jnp.expand_dims(points, axis=1)
     distances = jax.vmap(jax.vmap(dist_fn, in_axes=(None, 0)), in_axes=(0, None))(
@@ -178,6 +178,6 @@ def dists(points, dist_fn):
 @partial(jax.jit, static_argnames="dist_fn")
 def dists_to_nearest_neighbor(points, dist_fn):
     """Compute pairwise distances between points."""
-    dists_ = dists(points, dist_fn)
+    dists_ = dist_matrix(points, dist_fn)
     dists_ = fill_diagonal(dists_, jnp.inf)
     return jnp.min(dists_, axis=0)
