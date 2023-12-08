@@ -3,7 +3,6 @@ Online algorithm for adding points to a fixed-size set of points.
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
@@ -53,7 +52,7 @@ def _add_point(
     n_valid_points: int,
     threshold: float,
     approx_min: bool = True,
-) -> tuple[jnp.ndarray, bool, int]:
+) -> tuple[Array, bool, int]:
     """
     Adds one point to the bag, return the acceptance flag, the updated bag and the index
     of the replaced point (or -1 if no point was replaced).
@@ -106,20 +105,20 @@ def _add_point(
         x, X, similarity_fn, n_valid_points, threshold=threshold
     )
 
-    is_potential_infinite = jnp.isinf(potential_fn(min_dist))
-
     branches = [
         below_threshold_or_infinite_potential,
         above_and_not_full,
         above_and_full,
     ]
-    branch_idx = (
-        0
-        + (is_above_threshold & ~is_potential_infinite)
-        + (is_full & is_above_threshold)
-    )
 
-    return lax.switch(branch_idx, branches, X)
+    branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
+
+    # If the potential is infinite, the point is always rejected
+    is_potential_infinite = jnp.isinf(potential_fn(min_dist))
+    branch_idx *= ~is_potential_infinite
+
+    result = X, is_accepted, changed_item_idx = lax.switch(branch_idx, branches, X)
+    return result
 
 
 def _finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
