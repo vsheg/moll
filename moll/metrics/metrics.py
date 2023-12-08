@@ -4,8 +4,9 @@ This module contains implementations of various metrics for comparing vectors.
 
 import jax
 import jax.numpy as jnp
+from jax import Array
 from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
-from jaxtyping import Bool, Real
+from jax.typing import ArrayLike
 
 __all__ = [
     "mismatches",
@@ -19,7 +20,7 @@ __all__ = [
 
 
 @jax.jit
-def mismatches(p1: Real | Bool, p2: Real | Bool):
+def mismatches(p1: Array, p2: Array):
     """
     Computes the L0-norm distance between two vectors.
 
@@ -36,7 +37,7 @@ def mismatches(p1: Real | Bool, p2: Real | Bool):
 
 
 @jax.jit
-def manhattan(p1: Real, p2: Real):
+def manhattan(p1: Array, p2: Array):
     """
     Computes the Manhattan distance between two vectors.
 
@@ -53,7 +54,7 @@ def manhattan(p1: Real, p2: Real):
 
 
 @jax.jit
-def euclidean(p1: Real, p2: Real):
+def euclidean(p1: Array, p2: Array):
     """
     Computes the Euclidean distance between two vectors.
 
@@ -70,7 +71,7 @@ def euclidean(p1: Real, p2: Real):
 
 
 @jax.jit
-def cosine(a: Real, b: Real):
+def cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
 
@@ -87,7 +88,7 @@ def cosine(a: Real, b: Real):
 
 
 # TODO: maybe: negative_cosine ?
-def negative_cosine(a: Real, b: Real):
+def negative_cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
     """
@@ -95,7 +96,7 @@ def negative_cosine(a: Real, b: Real):
 
 
 @jax.jit
-def tanimoto(a: Bool, b: Bool):
+def tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto coefficient between two vectors.
 
@@ -118,7 +119,7 @@ def tanimoto(a: Bool, b: Bool):
 
 
 @jax.jit
-def one_minus_tanimoto(a: Bool, b: Bool):
+def one_minus_tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto distance between two vectors.
     """
