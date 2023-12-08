@@ -165,13 +165,31 @@ def fill_diagonal(array: jnp.ndarray, val: float | int):
     return array.at[..., i, j].set(val)
 
 
-@partial(jax.jit, static_argnames="dist_fn")
-def dist_matrix(points, dist_fn):
-    """Compute pairwise distances between points."""
+@partial(jax.jit, static_argnames=["dist_fn", "condensed"])
+def dist_matrix(points, dist_fn, condensed=False):
+    """
+    Compute pairwise distances between points.
+
+    >>> points = jnp.array([[0, 0], [1, 0]])
+    >>> dist_fn = lambda x, y: jnp.linalg.norm(x - y)
+
+    >>> dist_matrix(points, dist_fn).tolist()
+    [[0.0, 1.0], [1.0, 0.0]]
+
+    >>> dist_matrix(points, dist_fn, condensed=True).tolist()
+    [1.0]
+    """
     expanded_points = jnp.expand_dims(points, axis=1)
-    distances = jax.vmap(jax.vmap(dist_fn, in_axes=(None, 0)), in_axes=(0, None))(
-        points, expanded_points
-    )
+    distances = jax.vmap(
+        jax.vmap(dist_fn, in_axes=(None, 0)),
+        in_axes=(0, None),
+    )(points, expanded_points)
+
+    if condensed:
+        size = points.shape[0]
+        indices = jnp.triu_indices(size, k=1)
+        distances = distances[indices]
+
     return distances
 
 
