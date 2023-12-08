@@ -1,14 +1,14 @@
 from collections import Counter
+from collections.abc import Sequence
 from random import shuffle
-from typing import get_args
+from typing import cast, get_args
 
 import jax
 import jax.numpy as jnp
 import pytest
-from jaxtyping import Int
 from sklearn import datasets
 
-from ...metrics import euclidean, one_minus_tanimoto
+from ...metrics import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from ..online_picker import (
     OnlineDiversityPicker,
@@ -130,7 +130,8 @@ def centers_and_points(centers, request, seed=RANDOM_SEED):
     # sizes of smallest and biggest clusters
     smallest, biggest = request.param
 
-    sizes: Int = jnp.linspace(smallest, biggest, num=len(centers), dtype=int)
+    sizes = jnp.linspace(smallest, biggest, num=len(centers), dtype=int)
+    sizes = cast(Sequence[int], sizes)
     return centers, globs(centers, sizes=sizes, stds=0.5, cap_radius=1, seed=seed)
 
 

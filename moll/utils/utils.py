@@ -1,11 +1,11 @@
 import time
+from collections.abc import Sequence
 from functools import partial
 from typing import TypeAlias
 
 import jax
 import jax.numpy as jnp
-from jax import lax
-from jaxtyping import Array
+from jax import Array, lax
 
 __all__ = [
     "time_int_seed",
@@ -94,8 +94,8 @@ def grid_centers(
 
 def globs(
     centers: Array,
-    sizes: tuple[int, ...] | int = 10,
-    stds: tuple[float, ...] | float = 1,
+    sizes: Sequence[int] | int = 10,
+    stds: Sequence[float] | float = 1,
     seed: Seed = None,
     cap_radius: float | None = None,
     shuffle=True,

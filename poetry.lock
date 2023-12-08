@@ -1022,21 +1022,6 @@ cuda11-pip = ["nvidia-cublas-cu11 (>=11.11)", "nvidia-cuda-cupti-cu11 (>=11.8)",
 cuda12-pip = ["nvidia-cublas-cu12", "nvidia-cuda-cupti-cu12", "nvidia-cuda-nvcc-cu12", "nvidia-cuda-runtime-cu12", "nvidia-cudnn-cu12 (>=8.9)", "nvidia-cufft-cu12", "nvidia-cusolver-cu12", "nvidia-cusparse-cu12"]
 
 [[package]]
-name = "jaxtyping"
-version = "0.2.24"
-description = "Type annotations and runtime checking for shape and dtype of JAX arrays, and PyTrees."
-optional = false
-python-versions = "~=3.9"
-files = [
-    {file = "jaxtyping-0.2.24-py3-none-any.whl", hash = "sha256:b0e90891bbee882d5d3487023d132227d45bdaca3e72937d491b74334f148826"},
-]
-
-[package.dependencies]
-numpy = ">=1.20.0"
-typeguard = ">=2.13.3,<3"
-typing-extensions = ">=3.7.4.1"
-
-[[package]]
 name = "jedi"
 version = "0.19.1"
 description = "An autocompletion tool for Python that can be used for text editors."
@@ -3237,21 +3222,6 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,<7.5)", "pytest-mock", "pytest-mypy-testing"]
 
 [[package]]
-name = "typeguard"
-version = "2.13.3"
-description = "Run-time type checker for Python"
-optional = false
-python-versions = ">=3.5.3"
-files = [
-    {file = "typeguard-2.13.3-py3-none-any.whl", hash = "sha256:5e3e3be01e887e7eafae5af63d1f36c849aaa94e3a0112097312aabfa16284f1"},
-    {file = "typeguard-2.13.3.tar.gz", hash = "sha256:00edaa8da3a133674796cf5ea87d9f4b4c367d77476e185e80251cc13dfbb8c4"},
-]
-
-[package.extras]
-doc = ["sphinx-autodoc-typehints (>=1.2.0)", "sphinx-rtd-theme"]
-test = ["mypy", "pytest", "typing-extensions"]
-
-[[package]]
 name = "types-python-dateutil"
 version = "2.8.19.14"
 description = "Typing stubs for python-dateutil"
@@ -3398,4 +3368,4 @@ cpu = ["jax"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "15942a05287be285de152e6252b38e143365bb80b08435c02927a187befef65b"
+content-hash = "e236e72b5ab170e7eefc06532ff1d73cf1c55f0ba2867e0b3375c9749c03eba4"

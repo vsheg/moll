@@ -6,7 +6,8 @@ from collections.abc import Callable
 from typing import Literal, TypeAlias
 
 import jax.numpy as jnp
-from jaxtyping import Array, DTypeLike, Float
+from jax import Array
+from jax.typing import ArrayLike, DTypeLike
 from loguru import logger
 
 from ..metrics import (
@@ -104,7 +105,7 @@ class OnlineDiversityPicker:
 
     def _init_potential_fn(
         self, potential_fn: PotentialFn, p: float
-    ) -> Callable[[float], Float]:
+    ) -> Callable[[float], ArrayLike]:
         match potential_fn:
             case "hyperbolic":
                 return lambda d: jnp.where(d > 0, jnp.power(d, -p), jnp.inf)
