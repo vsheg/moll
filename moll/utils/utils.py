@@ -1,7 +1,8 @@
 import time
-from collections.abc import Sequence
-from functools import partial
-from typing import TypeAlias
+from collections.abc import Callable, Generator, Sequence
+from functools import partial, wraps
+from pathlib import Path
+from typing import Any, TypeAlias
 
 import jax
 import jax.numpy as jnp
@@ -19,6 +20,8 @@ __all__ = [
     "fill_diagonal",
     "dist_matrix",
     "dists_to_nearest_neighbor",
+    "listify",
+    "group_files_by_size",
 ]
 
 Seed: TypeAlias = int | jnp.ndarray | None
@@ -199,3 +202,57 @@ def dists_to_nearest_neighbor(points, dist_fn):
     dists_ = dist_matrix(points, dist_fn)
     dists_ = fill_diagonal(dists_, jnp.inf)
     return jnp.min(dists_, axis=0)
+
+
+def listify(fn: Callable[..., Generator[Any, None, None]]) -> Callable:
+    """
+    Decorator to convert a generator function to a function that returns a list.
+    """
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs) -> list[Any]:
+        return list(fn(*args, **kwargs))
+
+    return wrapper
+
+
+@listify
+def group_files_by_size(
+    files: list[Path], max_batches: int, *, sort_size=True, large_first=False
+) -> Generator[list[Path], None, None]:
+    """
+    Greedily groups files into batches by their size.
+
+    Note:
+        Number of batches may be less than `max_batches`.
+    """
+    if max_batches <= 0:
+        raise ValueError("`max_batches` must be greater than 0")
+
+    max_batches = min(max_batches, len(files))
+
+    files_with_byte_sizes = [(f, f.stat().st_size) for f in files]
+    total_byte_size = sum(size for _, size in files_with_byte_sizes)
+
+    batch_byte_size_threshold = max(1, total_byte_size // max_batches + 1)
+
+    if sort_size:
+        files_with_byte_sizes = sorted(
+            files_with_byte_sizes, key=lambda tup: tup[1], reverse=(not large_first)
+        )
+
+    batch = []
+    batch_byte_size = 0
+
+    while files_with_byte_sizes:
+        file, byte_size = files_with_byte_sizes.pop()
+        batch.append(file)
+        batch_byte_size += byte_size
+
+        if batch_byte_size >= batch_byte_size_threshold:
+            yield batch
+            batch = []
+            batch_byte_size = 0
+
+    if batch:
+        yield batch
