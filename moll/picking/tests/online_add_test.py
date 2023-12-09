@@ -12,8 +12,6 @@ from ..online_add import (
 
 # Test finalize_updates
 
-finalize_updates = jax.jit(_finalize_updates)
-
 
 @pytest.mark.parametrize(
     "array, expected",
@@ -32,15 +30,11 @@ finalize_updates = jax.jit(_finalize_updates)
 def test_finalize_updates(array, expected):
     array = jnp.array(array)
     expected = jnp.array(expected)
-    output_array = finalize_updates(array)
+    output_array = _finalize_updates(array)
     assert jnp.all(output_array == expected)
 
 
 # Test needless point search
-
-needless_point_idx = jax.jit(
-    _needless_point_idx, static_argnames=["dist_fn", "potential_fn"]
-)
 
 
 @pytest.mark.parametrize(
@@ -62,20 +56,11 @@ needless_point_idx = jax.jit(
 def test_find_needless_point(array, expected, dist_fn):
     array = jnp.array(array)
     # exp potential is used to treat negative distances
-    idx = needless_point_idx(array, dist_fn, lambda d: jnp.exp(-d))
+    idx = _needless_point_idx(array, dist_fn, lambda d: jnp.exp(-d))
     assert idx == expected
 
 
 # Test add points
-
-add_point = jax.jit(
-    _add_point,
-    static_argnames=[
-        "similarity_fn",
-        "potential_fn",
-        "k_neighbors",
-    ],
-)
 
 
 @pytest.fixture
@@ -102,7 +87,8 @@ def X():
 )
 def test_add_point(X, similarity_fn):
     x = jnp.array([4.3, 4.3])
-    X_updated, is_accepted, updated_idx = add_point(
+    X_copy = X.copy()
+    X_updated, is_accepted, updated_idx = _add_point(
         x=x,
         X=X,
         similarity_fn=similarity_fn,
@@ -113,7 +99,7 @@ def test_add_point(X, similarity_fn):
     )
     assert is_accepted
     assert updated_idx == 4
-    assert (X[:4] == X_updated[:4]).all()
+    assert (X_copy[:4] == X_updated[:4]).all()
     assert (X_updated[4] == x).all()
 
 

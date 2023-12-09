@@ -22,6 +22,7 @@ __all__ = [
     "dists_to_nearest_neighbor",
     "listify",
     "group_files_by_size",
+    "matrix_cross_sum",
 ]
 
 Seed: TypeAlias = int | jnp.ndarray | None
@@ -182,18 +183,36 @@ def dist_matrix(points, dist_fn, condensed=False):
     >>> dist_matrix(points, dist_fn, condensed=True).tolist()
     [1.0]
     """
-    expanded_points = jnp.expand_dims(points, axis=1)
-    distances = jax.vmap(
-        jax.vmap(dist_fn, in_axes=(None, 0)),
-        in_axes=(0, None),
-    )(points, expanded_points)
+    dists = jax.vmap(jax.vmap(dist_fn, in_axes=(None, 0)), in_axes=(0, None))(
+        points, points
+    )
 
     if condensed:
         size = points.shape[0]
         indices = jnp.triu_indices(size, k=1)
-        distances = distances[indices]
+        dists = dists[indices]
 
-    return distances
+    return dists
+
+
+@partial(jax.jit, static_argnames=["i", "j", "row_only", "crossover"])
+def matrix_cross_sum(X: Array, i: int, j: int, row_only=False, crossover=True):
+    """
+    Compute the sum of the elements in the row `i` and the column `j` of the matrix `X`.
+    """
+    X = lax.cond(
+        crossover,
+        lambda X: X,
+        lambda X: X.at[i, j].set(0),
+        X,
+    )
+
+    return lax.cond(
+        row_only,
+        lambda X: X[i, :].sum(),
+        lambda X: X[i, :].sum() + X[:, j].sum() - X[i, j],
+        X,
+    )
 
 
 @partial(jax.jit, static_argnames="dist_fn")

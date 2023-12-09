@@ -4,7 +4,7 @@ This module contains implementations of various metrics for comparing vectors.
 
 import jax
 import jax.numpy as jnp
-from jax import Array
+from jax import Array, lax
 from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
 from jax.typing import ArrayLike
 
@@ -87,7 +87,6 @@ def cosine(a: Array, b: Array):
     return (jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))).astype(float)
 
 
-# TODO: maybe: negative_cosine ?
 def negative_cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
@@ -111,7 +110,7 @@ def tanimoto(a: Array, b: Array):
 
     # Check for the case where both vectors are all zeros and return 0.0 in that case
 
-    return jax.lax.cond(
+    return lax.cond(
         bitwise_or == 0.0,
         lambda: 0.0,
         lambda: bitwise_and / bitwise_or,
