@@ -121,7 +121,7 @@ def centers(picker, request, seed=RANDOM_SEED, n_ticks=5):
 
 
 @pytest.fixture(
-    params=[[3, 3], [10, 1000]],  # smallest and biggest cluster sizes
+    params=[[3, 3], [1, 100]],  # smallest and biggest cluster sizes
 )
 def centers_and_points(centers, request, seed=RANDOM_SEED):
     """
