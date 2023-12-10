@@ -170,9 +170,11 @@ class OnlineDiversityPicker:
         # Check labels
 
         if not labels:
-            labels = range(self.n_seen, self.n_seen + len(points))
-        else:
-            assert len(labels) == batch_size
+            labels = np.arange(self.n_seen, self.n_seen + len(points))
+        elif len(labels) != batch_size:
+            raise ValueError(
+                f"Expected number of labels={len(labels)} to match batch_size={batch_size}"
+            )
 
         # Check dtype
 
