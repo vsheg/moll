@@ -11,7 +11,7 @@ from sklearn import datasets
 from moll.metrics import euclidean
 from moll.utils import dists_to_nearest_neighbor, globs, random_grid_points
 
-from ..online_picker import (
+from .._online_picker import (
     OnlineDiversityPicker,
     PotentialFnLiteral,
     SimilarityFnLiteral,

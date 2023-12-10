@@ -25,7 +25,7 @@ from moll.typing import (
     SimilarityFnLiteral,
 )
 
-from .online_add import update_points
+from ._online_add import update_points
 
 
 @public

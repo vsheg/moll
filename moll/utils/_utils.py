@@ -9,7 +9,7 @@ import jax.numpy as jnp
 from jax import Array, lax
 from public import public
 
-from .decorators import listify
+from ._decorators import listify
 
 Seed: TypeAlias = int | Array | None
 
