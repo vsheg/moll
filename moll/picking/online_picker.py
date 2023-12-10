@@ -297,7 +297,7 @@ class OnlineDiversityPicker:
         return self._labels[: self.n_valid_points].tolist()
 
     @property
-    def points(self) -> jnp.ndarray | None:
+    def points(self) -> Array | None:
         """
         Return the currently picked points.
         """

@@ -25,7 +25,7 @@ __all__ = [
     "matrix_cross_sum",
 ]
 
-Seed: TypeAlias = int | jnp.ndarray | None
+Seed: TypeAlias = int | Array | None
 
 
 def time_int_seed() -> int:
@@ -33,12 +33,12 @@ def time_int_seed() -> int:
     return int(time.time() * 1e6)
 
 
-def time_key() -> jnp.ndarray:
+def time_key() -> Array:
     """Returns a JAX PRNG key based on the current time."""
     return jax.random.PRNGKey(time_int_seed())
 
 
-def create_key(seed: Seed = None) -> jnp.ndarray:
+def create_key(seed: Seed = None) -> Array:
     """
     Create a JAX PRNG key from a seed.
     """
@@ -62,7 +62,7 @@ def cap_vector(vector: Array, max_length: float):
 
 
 def points_around(
-    center: jnp.ndarray,
+    center: Array,
     n_points: int,
     std: float = 1,
     cap_radius: float | None = None,
@@ -82,7 +82,7 @@ def grid_centers(
     range: float = 1,
     std: float = 0.0,
     seed: Seed = None,
-) -> jnp.ndarray:
+) -> Array:
     """
     Generate grid centers.
     """
@@ -163,7 +163,7 @@ def partition(data: list, *, n_partitions: int):
     return partitions
 
 
-def fill_diagonal(array: jnp.ndarray, val: float | int):
+def fill_diagonal(array: Array, val: float | int):
     assert array.ndim >= 2
     i, j = jnp.diag_indices(min(array.shape[-2:]))
     return array.at[..., i, j].set(val)
