@@ -1,43 +1,32 @@
 import time
-from collections.abc import Callable, Generator, Sequence
-from functools import partial, wraps
+from collections.abc import Generator, Sequence
+from functools import partial
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 import jax
 import jax.numpy as jnp
 from jax import Array, lax
+from public import public
 
-__all__ = [
-    "time_int_seed",
-    "time_key",
-    "create_key",
-    "points_around",
-    "grid_centers",
-    "globs",
-    "random_grid_points",
-    "partition",
-    "fill_diagonal",
-    "dist_matrix",
-    "dists_to_nearest_neighbor",
-    "listify",
-    "group_files_by_size",
-    "matrix_cross_sum",
-]
+from .decorators import listify
 
 Seed: TypeAlias = int | Array | None
 
 
+@public
 def time_int_seed() -> int:
     """Returns a number of microseconds since the epoch."""
     return int(time.time() * 1e6)
 
 
+@public
 def time_key() -> Array:
     """Returns a JAX PRNG key based on the current time."""
     return jax.random.PRNGKey(time_int_seed())
 
 
+@public
 def create_key(seed: Seed = None) -> Array:
     """
     Create a JAX PRNG key from a seed.
@@ -49,6 +38,7 @@ def create_key(seed: Seed = None) -> Array:
     return seed
 
 
+@public
 def cap_vector(vector: Array, max_length: float):
     """Truncate a vector to a maximum length."""
     length = jnp.linalg.norm(vector)
@@ -61,6 +51,7 @@ def cap_vector(vector: Array, max_length: float):
     )
 
 
+@public
 def points_around(
     center: Array,
     n_points: int,
@@ -96,6 +87,7 @@ def grid_centers(
     return centers
 
 
+@public
 def globs(
     centers: Array,
     sizes: Sequence[int] | int = 10,
@@ -131,6 +123,7 @@ def globs(
     return points
 
 
+@public
 def random_grid_points(
     n_points: int,
     dim: int,
@@ -150,6 +143,7 @@ def random_grid_points(
     return sample
 
 
+@public
 def partition(data: list, *, n_partitions: int):
     """
     Partition the data into `n_partitions` partitions.
@@ -163,12 +157,14 @@ def partition(data: list, *, n_partitions: int):
     return partitions
 
 
+@public
 def fill_diagonal(array: Array, val: float | int):
     assert array.ndim >= 2
     i, j = jnp.diag_indices(min(array.shape[-2:]))
     return array.at[..., i, j].set(val)
 
 
+@public
 @partial(jax.jit, static_argnames=["dist_fn", "condensed"])
 def dist_matrix(points, dist_fn, condensed=False):
     """
@@ -195,6 +191,7 @@ def dist_matrix(points, dist_fn, condensed=False):
     return dists
 
 
+@public
 @partial(jax.jit, static_argnames=["i", "j", "row_only", "crossover"])
 def matrix_cross_sum(X: Array, i: int, j: int, row_only=False, crossover=True):
     """
@@ -215,24 +212,13 @@ def matrix_cross_sum(X: Array, i: int, j: int, row_only=False, crossover=True):
     )
 
 
+@public
 @partial(jax.jit, static_argnames="dist_fn")
 def dists_to_nearest_neighbor(points, dist_fn):
     """Compute pairwise distances between points."""
     dists_ = dist_matrix(points, dist_fn)
     dists_ = fill_diagonal(dists_, jnp.inf)
     return jnp.min(dists_, axis=0)
-
-
-def listify(fn: Callable[..., Generator[Any, None, None]]) -> Callable:
-    """
-    Decorator to convert a generator function to a function that returns a list.
-    """
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs) -> list[Any]:
-        return list(fn(*args, **kwargs))
-
-    return wrapper
 
 
 @listify

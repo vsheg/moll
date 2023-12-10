@@ -141,6 +141,17 @@ files = [
 typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.11\""}
 
 [[package]]
+name = "atpublic"
+version = "4.0"
+description = "Keep all y'all's __all__'s in sync"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "atpublic-4.0-py3-none-any.whl", hash = "sha256:80057c55641253b86dcb68b524f82328172371b6547d4c7462a9127fbfbbabfc"},
+    {file = "atpublic-4.0.tar.gz", hash = "sha256:0f40433219e124edf115c6c363808ca6f0e1cfa7d160d86b2fb94793086d1294"},
+]
+
+[[package]]
 name = "attrs"
 version = "23.1.0"
 description = "Classes Without Boilerplate"
@@ -3368,4 +3379,4 @@ cpu = ["jax"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "e236e72b5ab170e7eefc06532ff1d73cf1c55f0ba2867e0b3375c9749c03eba4"
+content-hash = "bc3f408f30ee445999316692dcecaef50a76ef4c776cf3910212f06af6136443"

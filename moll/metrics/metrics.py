@@ -6,19 +6,10 @@ import jax
 import jax.numpy as jnp
 from jax import Array, lax
 from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
-from jax.typing import ArrayLike
-
-__all__ = [
-    "mismatches",
-    "manhattan",
-    "euclidean",
-    "cosine",
-    "negative_cosine",
-    "tanimoto",
-    "one_minus_tanimoto",
-]
+from public import public
 
 
+@public
 @jax.jit
 def mismatches(p1: Array, p2: Array):
     """
@@ -36,6 +27,7 @@ def mismatches(p1: Array, p2: Array):
     return jnp.sum(p1 != p2).astype(float)
 
 
+@public
 @jax.jit
 def manhattan(p1: Array, p2: Array):
     """
@@ -53,6 +45,7 @@ def manhattan(p1: Array, p2: Array):
     return jnp.sum(jnp.abs(p1 - p2)).astype(float)
 
 
+@public
 @jax.jit
 def euclidean(p1: Array, p2: Array):
     """
@@ -70,6 +63,7 @@ def euclidean(p1: Array, p2: Array):
     return jnp.linalg.norm(p1 - p2)
 
 
+@public
 @jax.jit
 def cosine(a: Array, b: Array):
     """
@@ -87,6 +81,7 @@ def cosine(a: Array, b: Array):
     return (jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))).astype(float)
 
 
+@public
 def negative_cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
@@ -94,6 +89,7 @@ def negative_cosine(a: Array, b: Array):
     return -cosine(a, b)
 
 
+@public
 @jax.jit
 def tanimoto(a: Array, b: Array):
     """
@@ -117,6 +113,7 @@ def tanimoto(a: Array, b: Array):
     )
 
 
+@public
 @jax.jit
 def one_minus_tanimoto(a: Array, b: Array):
     """

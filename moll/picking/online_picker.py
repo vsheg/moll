@@ -8,6 +8,7 @@ import numpy as np
 from jax import Array
 from jax.typing import DTypeLike
 from loguru import logger
+from public import public
 
 from moll.metrics import (
     euclidean,
@@ -26,9 +27,8 @@ from moll.typing import (
 
 from .online_add import update_points
 
-__all__ = ["OnlineDiversityPicker"]
 
-
+@public
 class OnlineDiversityPicker:
     """
     Greedy algorithm for picking a diverse subset of points in an online fashion.
