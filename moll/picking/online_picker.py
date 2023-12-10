@@ -2,34 +2,31 @@
 Online algorithm for picking a subset of points based on their distance.
 """
 
-from collections.abc import Callable
-from typing import List, Literal, Sequence, TypeAlias
 
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
-from jax.typing import ArrayLike, DTypeLike
+from jax.typing import DTypeLike
 from loguru import logger
-from numpy.typing import NDArray
 
-from ..metrics import (
+from moll.metrics import (
     euclidean,
     manhattan,
     mismatches,
     negative_cosine,
     one_minus_tanimoto,
 )
+from moll.typing import (
+    Indexable,
+    PotentialFnCallable,
+    PotentialFnLiteral,
+    SimilarityFnCallable,
+    SimilarityFnLiteral,
+)
+
 from .online_add import update_points
 
 __all__ = ["OnlineDiversityPicker"]
-
-SimilarityFnLiteral = Literal[
-    "euclidean", "manhattan", "one_minus_tanimoto", "mismatches", "negative_cosine"
-]
-SimilarityFn: TypeAlias = Callable[[Array, Array], float] | SimilarityFnLiteral
-
-PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
-PotentialFn: TypeAlias = Callable[[float], float] | PotentialFnLiteral
 
 
 class OnlineDiversityPicker:
@@ -40,28 +37,32 @@ class OnlineDiversityPicker:
     def __init__(
         self,
         capacity: int,
-        similarity_fn: SimilarityFn = "euclidean",
         *,
-        potential_fn: PotentialFn = "hyperbolic",
-        p: float = 1.0,
+        similarity_fn: SimilarityFnCallable | SimilarityFnLiteral = "euclidean",
+        potential_fn: PotentialFnCallable | PotentialFnLiteral = "hyperbolic",
+        p: float | int = 1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = -jnp.inf,
         dtype: DTypeLike | None = None,
     ):
         self.capacity = capacity
 
-        self.similarity_fn = self._init_similarity_fn(similarity_fn)
+        self.similarity_fn: SimilarityFnCallable = self._init_similarity_fn(
+            similarity_fn
+        )
 
         self.k_neighbors = self._init_k_neighbors(k_neighbors, capacity)
 
         self.p = p
-        self.potential_fn = self._init_potential_fn(potential_fn, self.p)
+        self.potential_fn: PotentialFnCallable = self._init_potential_fn(
+            potential_fn, self.p
+        )
 
         self.threshold = threshold
 
         self._data: Array | None = None
         self.dtype: DTypeLike | None = dtype
-        self._labels: NDArray = np.array([None] * capacity, dtype=object)
+        self._labels = np.array([None] * capacity, dtype=object)
 
         self.n_seen: int = 0
         self.n_accepted: int = 0
@@ -90,8 +91,8 @@ class OnlineDiversityPicker:
         return k_neighbors
 
     def _init_similarity_fn(
-        self, similarity_fn: SimilarityFn
-    ) -> Callable[[Array, Array], float]:
+        self, similarity_fn: SimilarityFnLiteral | SimilarityFnCallable
+    ) -> SimilarityFnCallable:
         match similarity_fn:
             case "euclidean":
                 return euclidean
@@ -106,8 +107,8 @@ class OnlineDiversityPicker:
         return similarity_fn
 
     def _init_potential_fn(
-        self, potential_fn: PotentialFn, p: float
-    ) -> Callable[[float], ArrayLike]:
+        self, potential_fn: PotentialFnLiteral | PotentialFnCallable, p: float
+    ) -> PotentialFnCallable:
         match potential_fn:
             case "hyperbolic":
                 return lambda d: jnp.where(d > 0, jnp.power(d, -p), jnp.inf)
@@ -142,28 +143,23 @@ class OnlineDiversityPicker:
         self,
         updated_idxs: Array,
         acceptance_mask: Array,
-        labels: Sequence,  # type: ignore
+        labels: Indexable,
     ):
-        # for updated_idx, label in zip(updated_idxs, labels, strict=True):
-        #     if updated_idx >= 0:
-        #         self._labels[updated_idx] = label
-
         idxs = updated_idxs[acceptance_mask]
 
         # If we create the array with a tuple-like label, we get a 2D array.
         # Besides, an empty 1D array is created explicitly, and then it can be filled
         _labels = labels  # copy value
-        labels: NDArray = np.empty(len(labels), dtype=object)  # init 1D array
+        labels = np.empty(len(labels), dtype=object)  # init 1D array
         labels[:] = _labels  # fill it
 
         # Update labels
         self._labels[idxs] = labels[acceptance_mask]
 
-    def update(self, points: Array, labels=None) -> int:
+    def update(self, points: Array, labels: Indexable | None = None) -> int:
         """
         Add a batch of points to the picker.
         """
-
         batch_size = len(points)
         n_accepted = 0
 
@@ -179,7 +175,7 @@ class OnlineDiversityPicker:
         # Check dtype
 
         if points.dtype is jnp.float64:
-            points = points.astype(self.dtype)
+            points = points.astype(self.dtype)  # FIXME
             logger.warning(
                 "Downcasting to float32. If float64 is needed, set dtype=jnp.float64"
                 " and configure JAX to support it."
@@ -234,7 +230,7 @@ class OnlineDiversityPicker:
         """
         points = jnp.array([point])
         labels = [label] if label else None
-        n_accepted = self.update(points, labels)
+        n_accepted = self.update(points, labels)  # type: ignore
         is_accepted = n_accepted > 0
         return is_accepted
 

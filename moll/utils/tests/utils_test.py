@@ -1,8 +1,7 @@
-import jax
 import jax.numpy as jnp
 import pytest
 
-from ..utils import matrix_cross_sum
+from moll.utils import matrix_cross_sum
 
 
 @pytest.mark.parametrize(
