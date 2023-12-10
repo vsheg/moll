@@ -105,8 +105,7 @@ def _add_point(
             is_accepted,
             lambda X, idx: (X.at[updated_point_idx].set(x), idx),
             lambda X, _: (X, -1),
-            X,
-            updated_point_idx,
+            *(X, updated_point_idx),
         )
 
         return X, updated_point_idx
