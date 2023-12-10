@@ -3,12 +3,14 @@ Online algorithm for picking a subset of points based on their distance.
 """
 
 from collections.abc import Callable
-from typing import Literal, TypeAlias
+from typing import List, Literal, Sequence, TypeAlias
 
 import jax.numpy as jnp
+import numpy as np
 from jax import Array
 from jax.typing import ArrayLike, DTypeLike
 from loguru import logger
+from numpy.typing import NDArray
 
 from ..metrics import (
     euclidean,
@@ -59,7 +61,7 @@ class OnlineDiversityPicker:
 
         self._data: Array | None = None
         self.dtype: DTypeLike | None = dtype
-        self._labels: list = [None] * capacity
+        self._labels: NDArray = np.array([None] * capacity, dtype=object)
 
         self.n_seen: int = 0
         self.n_accepted: int = 0
@@ -136,6 +138,27 @@ class OnlineDiversityPicker:
         self.n_accepted += 1
         self.n_seen += 1
 
+    def _update_labels(
+        self,
+        updated_idxs: Array,
+        acceptance_mask: Array,
+        labels: Sequence,  # type: ignore
+    ):
+        # for updated_idx, label in zip(updated_idxs, labels, strict=True):
+        #     if updated_idx >= 0:
+        #         self._labels[updated_idx] = label
+
+        idxs = updated_idxs[acceptance_mask]
+
+        # If we create the array with a tuple-like label, we get a 2D array.
+        # Besides, an empty 1D array is created explicitly, and then it can be filled
+        _labels = labels  # copy value
+        labels: NDArray = np.empty(len(labels), dtype=object)  # init 1D array
+        labels[:] = _labels  # fill it
+
+        # Update labels
+        self._labels[idxs] = labels[acceptance_mask]
+
     def update(self, points: Array, labels=None) -> int:
         """
         Add a batch of points to the picker.
@@ -171,30 +194,31 @@ class OnlineDiversityPicker:
         # Process remaining points
 
         if points.shape[0] > 0:
-            update_idxs, data_updated, acceptance_mask = update_points(
+            (
+                data_updated,
+                updated_idxs,
+                acceptance_mask,
+                n_appended,
+                n_updated,
+            ) = update_points(
                 X=self._data,
                 xs=points,
                 similarity_fn=self.similarity_fn,
                 potential_fn=self.potential_fn,
                 k_neighbors=self.k_neighbors,
                 threshold=self.threshold,
-                n_valid_points=self.n_valid_points,
+                n_valid=self.n_valid_points,
             )
 
+            # Update points data
             self._data = data_updated
 
-            last_valid_idx = self.n_valid_points - 1
-            n_updated = (
-                ((update_idxs >= 0) & (update_idxs <= last_valid_idx)).sum().item()
-            )
-            n_added = (update_idxs > last_valid_idx).sum().item()
-            self.n_valid_points += n_added
-            n_accepted += n_added + n_updated
+            # Update counters
+            self.n_valid_points += int(n_appended)
+            n_accepted += int(n_appended) + int(n_updated)
 
             # Update labels
-            for updated_idx, label in zip(update_idxs, labels, strict=True):
-                if updated_idx >= 0:
-                    self._labels[updated_idx] = label
+            self._update_labels(updated_idxs, acceptance_mask, labels)
 
         n_accepted = min(n_accepted, self.capacity)
         self.n_accepted += n_accepted - was_empty
@@ -270,7 +294,7 @@ class OnlineDiversityPicker:
         """
         if self._data is None:
             return None
-        return self._labels[: self.n_valid_points]
+        return self._labels[: self.n_valid_points].tolist()
 
     @property
     def points(self) -> jnp.ndarray | None:

@@ -75,12 +75,12 @@ def _add_point(
     """
 
     def below_threshold_or_infinite_potential(X, _):
-        return X, False, -1
+        return X, -1
 
     def above_threshold_and_not_full(X, _):
         updated_point_idx = n_valid_points
         X = X.at[updated_point_idx].set(x)
-        return X, True, updated_point_idx
+        return X, updated_point_idx
 
     def above_threshold_and_full(X, dists):
         # TODO: test approx_min_k vs argpartition
@@ -107,7 +107,7 @@ def _add_point(
             updated_point_idx,
         )
 
-        return X, is_accepted, updated_point_idx
+        return X, updated_point_idx
 
     is_full = X.shape[0] == n_valid_points
 
@@ -127,9 +127,7 @@ def _add_point(
     is_potential_infinite = jnp.isinf(potential_fn(min_dist))
     branch_idx *= ~is_potential_infinite
 
-    result = X, is_accepted, updated_point_idx = lax.switch(
-        branch_idx, branches, X, dists
-    )
+    result = X, updated_point_idx = lax.switch(branch_idx, branches, X, dists)
     return result
 
 
@@ -160,7 +158,7 @@ def _finalize_updates(changes: Array) -> Array:
 @partial(
     jax.jit,
     static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
-    donate_argnames=["xs", "X"],
+    donate_argnames=["X", "xs"],
 )
 def update_points(
     *,
@@ -170,44 +168,43 @@ def update_points(
     potential_fn: Callable,
     k_neighbors: int,
     threshold: float,
-    n_valid_points: int,
-) -> tuple[Array, Array, Array]:
+    n_valid: int,
+) -> tuple[Array, Array, Array, int, int]:
     assert xs.shape[0] > 0
-    assert X.dtype == xs.dtype
+    # assert X.dtype == xs.dtype # TODO: fix dtype
 
     # Initialize array to store the information about the changes
-    updated_points_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not updated
+    updated_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not updated
 
-    def body_fun(i, args):
-        X, updated_points_idxs, n_valid_points = args
-        X_updated, is_accepted, updated_point_idx = _add_point(
-            xs[i],
+    def body_fun(carry, x):
+        X, n_valid_new = carry
+
+        X, updated_idx = _add_point(
+            x,
             X,
             similarity_fn=similarity_fn,
             potential_fn=potential_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
-            n_valid_points=n_valid_points,
+            n_valid_points=n_valid_new,
         )
 
-        # Record the index of the replaced point
-        updated_points_idxs = updated_points_idxs.at[i].set(updated_point_idx)
-
-        n_valid_points = lax.cond(
-            updated_point_idx == n_valid_points,
+        n_valid_new = lax.cond(
+            updated_idx == n_valid_new,
             lambda n: n + 1,
             lambda n: n,
-            n_valid_points,
+            n_valid_new,
         )
 
-        return X_updated, updated_points_idxs, n_valid_points
+        return (X, n_valid_new), updated_idx
 
-    X_new, updated_points_idxs, _ = lax.fori_loop(
-        0, xs.shape[0], body_fun, (X, updated_points_idxs, n_valid_points)
-    )
+    (X, n_valid_new), updated_idxs = lax.scan(body_fun, (X, n_valid), xs)
 
     # Some points might have been accepted and then replaced by another point
-    updated_points_idxs = _finalize_updates(updated_points_idxs)
-    acceptance_mask = updated_points_idxs >= 0
+    updated_idxs = _finalize_updates(updated_idxs)
+    acceptance_mask = updated_idxs >= 0
 
-    return updated_points_idxs, X_new, acceptance_mask
+    n_appended = n_valid_new - n_valid
+    n_updated = ((updated_idxs >= 0) & (updated_idxs < n_valid)).sum()
+
+    return X, updated_idxs, acceptance_mask, n_appended, n_updated

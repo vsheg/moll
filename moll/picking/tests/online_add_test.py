@@ -88,7 +88,7 @@ def X():
 def test_add_point(X, similarity_fn):
     x = jnp.array([4.3, 4.3])
     X_copy = X.copy()
-    X_updated, is_accepted, updated_idx = _add_point(
+    X_updated, updated_idx = _add_point(
         x=x,
         X=X,
         similarity_fn=similarity_fn,
@@ -97,7 +97,7 @@ def test_add_point(X, similarity_fn):
         n_valid_points=5,
         threshold=-jnp.inf,
     )
-    assert is_accepted
+    assert updated_idx >= 0
     assert updated_idx == 4
     assert (X_copy[:4] == X_updated[:4]).all()
     assert (X_updated[4] == x).all()
@@ -121,13 +121,13 @@ def test_update_points(X, xs, acc_mask):
     acc_mask = jnp.array(acc_mask)
     X_copy = X.copy()
 
-    _updated_idxs, X_updated, acceptance_mask = update_points(
+    X_updated, updated_idxs, acceptance_mask, n_appended, n_updated = update_points(
         X=X,
         xs=xs,
         similarity_fn=euclidean,
         potential_fn=lambda d: d**-1,
         k_neighbors=5,
-        n_valid_points=5,
+        n_valid=5,
         threshold=0.0,
     )
 
