@@ -82,6 +82,7 @@ ignore = [
     "D212", # start docstring on a first line
     "D200", # one-line docstring should fit on one line 
     "D103", # missing docstring in public function
+    "D104", # missing docstring in public package
 ]
 pydocstyle.convention = "google"
 
