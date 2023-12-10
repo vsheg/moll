@@ -38,7 +38,8 @@ def _needless_point_idx(
     return idx
 
 
-def _similarities(x, X, similarity_fn, n_valid):
+@partial(jax.jit, static_argnames=["similarity_fn"])
+def _similarities(x: Array, X: Array, similarity_fn: Callable, n_valid: int):
     def sim_i(i):
         return lax.cond(
             i < n_valid,
@@ -50,6 +51,7 @@ def _similarities(x, X, similarity_fn, n_valid):
     return jax.vmap(sim_i)(jnp.arange(X.shape[0]))
 
 
+@partial(jax.jit, static_argnames=["k_neighbors"])
 def _k_neighbors(similarities: Array, k_neighbors: int):
     k_neighbors_idxs = lax.approx_min_k(similarities, k=k_neighbors)[1]
     return k_neighbors_idxs
@@ -82,10 +84,10 @@ def _add_point(
         X = X.at[updated_point_idx].set(x)
         return X, updated_point_idx
 
-    def above_threshold_and_full(X, dists):
+    def above_threshold_and_full(X, sims):
         # TODO: test approx_min_k vs argpartition
 
-        k_neighbors_idxs = _k_neighbors(dists, k_neighbors=k_neighbors)
+        k_neighbors_idxs = _k_neighbors(sims, k_neighbors=k_neighbors)
 
         # Define a neighborhood of `x`
         vicinity = lax.concatenate((jnp.array([x]), X[k_neighbors_idxs]), 0)
@@ -111,8 +113,8 @@ def _add_point(
 
     is_full = X.shape[0] == n_valid_points
 
-    dists = _similarities(x, X, similarity_fn, n_valid_points)
-    min_dist = dists.min()
+    sims = _similarities(x, X, similarity_fn, n_valid_points)
+    min_dist = sims.min()
     is_above_threshold = min_dist > threshold
 
     branches = [
@@ -127,7 +129,7 @@ def _add_point(
     is_potential_infinite = jnp.isinf(potential_fn(min_dist))
     branch_idx *= ~is_potential_infinite
 
-    result = X, updated_point_idx = lax.switch(branch_idx, branches, X, dists)
+    result = X, updated_point_idx = lax.switch(branch_idx, branches, X, sims)
     return result
 
 
