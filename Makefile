@@ -7,12 +7,11 @@ notebooks:
 clean:
 	rm -rf .venv .mypy* .pytest* .coverage* coverage.xml htmlcov **/__pycache__ 
 
-cpu:
+cpu: clean
 	poetry install -E cpu
 
-cuda12_local:
+cuda12_local: clean
 	poetry install
-	pip install --upgrade "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-
+	poetry run pip install --upgrade "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
 .PHONY: render notebooks clean
