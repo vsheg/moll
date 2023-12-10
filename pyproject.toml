@@ -26,6 +26,7 @@ python = ">=3.10,<3.13"
 rdkit = "^2023.3.1"
 loguru = "^0.7.2"
 jax = { version = "^0.4.20", extras = ["cpu"], optional = true }
+atpublic = "^4.0"
 
 [tool.poetry.extras]
 cpu = ["jax"]
@@ -67,15 +68,21 @@ extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle
-    "F",   # Pyflakes
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "SIM", # flake8-simplify
-    "I",   # isort
-    "TCH", # flake8-type-checking 
+    "E",    # pycodestyle
+    "F",    # Pyflakes
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "I",    # isort
+    "TCH",  # flake8-type-checking 
+    "D",    # flake8-docstrings
+    "D213", # start docstring on a second line
 ]
-ignore = []
+ignore = [
+    "D212", # start docstring on a first line
+    "D200", # one-line docstring should fit on one line 
+    "D103", # missing docstring in public function
+]
 pydocstyle.convention = "google"
 
 

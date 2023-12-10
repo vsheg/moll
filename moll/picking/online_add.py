@@ -3,115 +3,140 @@ Online algorithm for adding points to a fixed-size set of points.
 """
 
 from collections.abc import Callable
+from functools import partial
 
 import jax
 import jax.numpy as jnp
-from jax import lax
+from jax import Array, lax
 
-from ..metrics.utils import _matrix_cross_sum, _pairwise_distances
-from ..utils.utils import fill_diagonal
+from moll.utils import dist_matrix, fill_diagonal, matrix_cross_sum
 
 
+@partial(jax.jit, static_argnames=["similarity_fn", "potential_fn"])
 def _needless_point_idx(
-    X: jnp.ndarray, dist_fn: Callable, potential_fn: Callable
+    vicinity: Array, similarity_fn: Callable, potential_fn: Callable
 ) -> int:
     """
     Find a point in `X` removing which would decrease the total potential the most.
     """
-    dists = _pairwise_distances(X, dist_fn)
-    potentials = jax.vmap(potential_fn)(dists)
-    potentials = fill_diagonal(potentials, 0)  # replace diagonal elements with 0
+    # Calculate matrix of pairwise distances and corresponding matrix of potentials
+    dist_mat = dist_matrix(vicinity, similarity_fn)
+    potent_mat = jax.vmap(potential_fn)(dist_mat)
 
-    # Compute potential decrease for each point
-    deltas = jax.vmap(lambda i: _matrix_cross_sum(potentials, i, i, row_only=True))(
-        jnp.arange(X.shape[0])
+    # Inherent potential of a point is 0, it means that the point by itself does not
+    # contribute to the total potential. In the future, the penalty for the point itself
+    # can be added
+    potent_mat = fill_diagonal(potent_mat, 0)
+
+    # Compute potential decrease when each point is deleted from the set
+    deltas = jax.vmap(lambda i: matrix_cross_sum(potent_mat, i, i, row_only=True))(
+        jnp.arange(vicinity.shape[0])
     )
 
     # Find point that decreases total potential the most (deltas are negative)
     idx = deltas.argmax()
-
     return idx
 
 
-def dists(x, X, dist_fn, n_valid, threshold=0.0):
-    ds = jax.vmap(dist_fn, in_axes=(None, 0))(x, X)
-    mask = jnp.arange(X.shape[0]) < n_valid
-    ds = jnp.where(mask, ds, jnp.inf)
-    return ds.min() > threshold, ds, ds.min()
+@partial(jax.jit, static_argnames=["similarity_fn"])
+def _similarities(x: Array, X: Array, similarity_fn: Callable, n_valid: int):
+    def sim_i(i):
+        return lax.cond(
+            i < n_valid,
+            lambda i: similarity_fn(x, X[i]),
+            lambda _: jnp.inf,
+            i,
+        )
+
+    return jax.vmap(sim_i)(jnp.arange(X.shape[0]))
 
 
+@partial(jax.jit, static_argnames=["k_neighbors"])
+def _k_neighbors(similarities: Array, k_neighbors: int):
+    k_neighbors_idxs = lax.approx_min_k(similarities, k=k_neighbors)[1]
+    return k_neighbors_idxs
+
+
+@partial(
+    jax.jit,
+    static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
+    donate_argnames=["x", "X"],
+    inline=True,
+)
 def _add_point(
-    x: jnp.ndarray,
-    X: jnp.ndarray,
-    dist_fn: Callable,
+    x: Array,
+    X: Array,
+    similarity_fn: Callable,
+    potential_fn: Callable,
     k_neighbors: int,
-    power: float,
     n_valid_points: int,
-    threshold: float = 0.0,
-    approx_min: bool = True,
-) -> tuple[jnp.ndarray, bool, int]:
+    threshold: float,
+) -> tuple[Array, bool, int]:
     """
-    Adds one point to the bag, return the acceptance flag, the updated bag and the index
-    of the replaced point (or -1 if no point was replaced).
+    Adds a point `x` to a fixed-size set of points `X`.
     """
 
-    def below_threshold(X):
-        return X, False, -1
+    def below_threshold_or_infinite_potential(X, _):
+        return X, -1
 
-    def above_and_not_full(X):
-        changed_item_idx = n_valid_points
-        X = X.at[changed_item_idx].set(x)
-        return X, True, changed_item_idx
+    def above_threshold_and_not_full(X, _):
+        updated_point_idx = n_valid_points
+        X = X.at[updated_point_idx].set(x)
+        return X, updated_point_idx
 
-    def above_and_full(X):
-        # Find closest points in `X` to `x`
+    def above_threshold_and_full(X, sims):
         # TODO: test approx_min_k vs argpartition
 
-        k_closest_points_dists, k_closest_points_indices = lax.cond(
-            approx_min,
-            lambda ds: lax.approx_min_k(ds, k=k_neighbors),
-            lambda ds: lax.top_k(-ds, k=k_neighbors),
-            dists_from_x_to_X,
-        )
-
-        k_closest_points_dists = lax.abs(k_closest_points_dists)  # for top_k
+        k_neighbors_idxs = _k_neighbors(sims, k_neighbors=k_neighbors)
 
         # Define a neighborhood of `x`
-        N = jnp.concatenate((jnp.array([x]), X[k_closest_points_indices]))
+        vicinity = lax.concatenate((jnp.array([x]), X[k_neighbors_idxs]), 0)
 
-        # Find a point in `N` removing which would decrease the total potential the most
-        needless_point_local_idx = _needless_point_idx(N, dist_fn, lambda d: d**-power)
-
-        # If the needless point is not `x`, replace it with `x`
-        is_accepted = needless_point_local_idx > 0
-        changed_item_idx = k_closest_points_indices[needless_point_local_idx - 1]
-
-        X, changed_item_idx = lax.cond(
-            is_accepted,
-            lambda X, idx: (X.at[changed_item_idx].set(x), idx),
-            lambda X, _: (X, -1),
-            X,
-            changed_item_idx,
+        # Point in the vicinity removing which decreases the total potential the most:
+        needless_point_vicinity_idx = _needless_point_idx(
+            vicinity, similarity_fn, potential_fn
         )
 
-        return X, is_accepted, changed_item_idx
+        # If the needless point is not `x`, replace it with `x`
+        is_accepted = needless_point_vicinity_idx > 0
+        updated_point_idx = k_neighbors_idxs[needless_point_vicinity_idx - 1]
+
+        X, updated_point_idx = lax.cond(
+            is_accepted,
+            lambda X, idx: (X.at[updated_point_idx].set(x), idx),
+            lambda X, _: (X, -1),
+            *(X, updated_point_idx),
+        )
+
+        return X, updated_point_idx
 
     is_full = X.shape[0] == n_valid_points
 
-    is_above_threshold, dists_from_x_to_X, min_dist = dists(
-        x, X, dist_fn, n_valid_points, threshold=threshold
-    )
+    sims = _similarities(x, X, similarity_fn, n_valid_points)
+    min_dist = sims.min()
+    is_above_threshold = min_dist > threshold
 
-    branches = [below_threshold, above_and_not_full, above_and_full]
-    branch_idx = 0 + is_above_threshold + (is_full & is_above_threshold)
+    branches = [
+        below_threshold_or_infinite_potential,
+        above_threshold_and_not_full,
+        above_threshold_and_full,
+    ]
 
-    return lax.switch(branch_idx, branches, X)
+    branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
+
+    # If the potential is infinite, the point is always rejected
+    is_potential_infinite = jnp.isinf(potential_fn(min_dist))
+    branch_idx *= ~is_potential_infinite
+
+    result = X, updated_point_idx = lax.switch(branch_idx, branches, X, sims)
+    return result
 
 
-def _finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
+@partial(jax.jit, donate_argnames=["changes"], inline=True)
+def _finalize_updates(changes: Array) -> Array:
     """
     Given an array where each element represents whether a change occurred or
-    not, -1 means no change, and a positive integer represents ID of changed
+    not, -1 means no change, and a positive integer represents ID of updated
     object in some DB, return an array where only the last occurrence of each
     change is kept.
 
@@ -131,59 +156,56 @@ def _finalize_updates(changes: jnp.ndarray) -> jnp.ndarray:
     return jnp.where(mask, changes, -1)
 
 
-def _add_points(
+@partial(
+    jax.jit,
+    static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
+    donate_argnames=["X", "xs"],
+)
+def update_points(
     *,
-    X: jnp.ndarray,
-    xs: jnp.ndarray,
-    dist_fn: Callable,
+    X: Array,
+    xs: Array,
+    similarity_fn: Callable,
+    potential_fn: Callable,
     k_neighbors: int,
     threshold: float,
-    power: float,
-    n_valid_points: int,
-) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    n_valid: int,
+) -> tuple[Array, Array, Array, int, int]:
     assert xs.shape[0] > 0
-    assert X.dtype == xs.dtype
+    # assert X.dtype == xs.dtype # TODO: fix dtype
 
     # Initialize array to store the information about the changes
-    changed_item_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not changed
+    updated_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not updated
 
-    def body_fun(i, args):
-        X, changed_items_idxs, n_valid_points = args
-        X_updated, is_accepted, changed_item_idx = _add_point(
-            xs[i],
+    def body_fun(carry, x):
+        X, n_valid_new = carry
+
+        X, updated_idx = _add_point(
+            x,
             X,
-            dist_fn,
+            similarity_fn=similarity_fn,
+            potential_fn=potential_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
-            power=power,
-            n_valid_points=n_valid_points,
+            n_valid_points=n_valid_new,
         )
 
-        # Record the index of the replaced point
-        changed_items_idxs = changed_items_idxs.at[i].set(changed_item_idx)
-
-        n_valid_points = lax.cond(
-            changed_item_idx == n_valid_points,
+        n_valid_new = lax.cond(
+            updated_idx == n_valid_new,
             lambda n: n + 1,
             lambda n: n,
-            n_valid_points,
+            n_valid_new,
         )
 
-        return X_updated, changed_items_idxs, n_valid_points
+        return (X, n_valid_new), updated_idx
 
-    X_new, changed_item_idxs, _ = lax.fori_loop(
-        0, xs.shape[0], body_fun, (X, changed_item_idxs, n_valid_points)
-    )
+    (X, n_valid_new), updated_idxs = lax.scan(body_fun, (X, n_valid), xs)
 
     # Some points might have been accepted and then replaced by another point
-    changed_item_idxs = _finalize_updates(changed_item_idxs)
-    acceptance_mask = changed_item_idxs >= 0
+    updated_idxs = _finalize_updates(updated_idxs)
+    acceptance_mask = updated_idxs >= 0
 
-    return changed_item_idxs, X_new, acceptance_mask
+    n_appended = n_valid_new - n_valid
+    n_updated = ((updated_idxs >= 0) & (updated_idxs < n_valid)).sum()
 
-
-add_points = jax.jit(
-    _add_points,
-    static_argnames=["dist_fn", "k_neighbors"],
-    donate_argnames=["X"],
-)
+    return X, updated_idxs, acceptance_mask, n_appended, n_updated

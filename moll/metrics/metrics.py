@@ -4,19 +4,14 @@ This module contains implementations of various metrics for comparing vectors.
 
 import jax
 import jax.numpy as jnp
+from jax import Array, lax
 from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
-
-__all__ = [
-    "mismatches",
-    "manhattan",
-    "euclidean",
-    "tanimoto",
-    "one_minus_tanimoto",
-]
+from public import public
 
 
+@public
 @jax.jit
-def mismatches(p1, p2):
+def mismatches(p1: Array, p2: Array):
     """
     Computes the L0-norm distance between two vectors.
 
@@ -32,8 +27,9 @@ def mismatches(p1, p2):
     return jnp.sum(p1 != p2).astype(float)
 
 
+@public
 @jax.jit
-def manhattan(p1, p2):
+def manhattan(p1: Array, p2: Array):
     """
     Computes the Manhattan distance between two vectors.
 
@@ -49,8 +45,9 @@ def manhattan(p1, p2):
     return jnp.sum(jnp.abs(p1 - p2)).astype(float)
 
 
+@public
 @jax.jit
-def euclidean(p1, p2):
+def euclidean(p1: Array, p2: Array):
     """
     Computes the Euclidean distance between two vectors.
 
@@ -66,8 +63,35 @@ def euclidean(p1, p2):
     return jnp.linalg.norm(p1 - p2)
 
 
+@public
 @jax.jit
-def tanimoto(a: jnp.ndarray, b: jnp.ndarray):
+def cosine(a: Array, b: Array):
+    """
+    Computes the cosine distance between two vectors.
+
+    >>> cosine(A([1, 0]), A([1, 0])).item()
+    1.0
+
+    >>> cosine(A([1, 0]), A([0, 1])).item()
+    0.0
+
+    >>> cosine(A([1, 0]), A([-1, 0])).item()
+    -1.0
+    """
+    return (jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))).astype(float)
+
+
+@public
+def negative_cosine(a: Array, b: Array):
+    """
+    Computes the cosine distance between two vectors.
+    """
+    return -cosine(a, b)
+
+
+@public
+@jax.jit
+def tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto coefficient between two vectors.
 
@@ -82,15 +106,16 @@ def tanimoto(a: jnp.ndarray, b: jnp.ndarray):
 
     # Check for the case where both vectors are all zeros and return 0.0 in that case
 
-    return jax.lax.cond(
+    return lax.cond(
         bitwise_or == 0.0,
         lambda: 0.0,
         lambda: bitwise_and / bitwise_or,
     )
 
 
+@public
 @jax.jit
-def one_minus_tanimoto(a: jnp.ndarray, b: jnp.ndarray):
+def one_minus_tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto distance between two vectors.
     """
