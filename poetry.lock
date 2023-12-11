@@ -596,6 +596,35 @@ docs = ["ipython", "matplotlib", "numpydoc", "sphinx"]
 tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
+name = "datamol"
+version = "0.12.2"
+description = "A python library to work with molecules. Built on top of RDKit."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "datamol-0.12.2-py3-none-any.whl", hash = "sha256:fc1246e46f7cf207f904a019c2cb27a2fe3bfbf822f8bb65fee663696c6bdd94"},
+    {file = "datamol-0.12.2.tar.gz", hash = "sha256:69e97b23ef40a83cb7ea2d1bf56e98123b0cc1c1cf9ae63d007a9a01b1a2b105"},
+]
+
+[package.dependencies]
+fsspec = ">=2021.9"
+importlib-resources = "*"
+joblib = "*"
+loguru = "*"
+matplotlib = "*"
+numpy = "*"
+packaging = "*"
+pandas = "*"
+pillow = "*"
+platformdirs = "*"
+rdkit = "*"
+scikit-learn = "*"
+scipy = "*"
+selfies = "*"
+tqdm = "*"
+typing-extensions = "*"
+
+[[package]]
 name = "debugpy"
 version = "1.8.0"
 description = "An implementation of the Debug Adapter Protocol for Python"
@@ -837,6 +866,21 @@ files = [
     {file = "idna-3.6-py3-none-any.whl", hash = "sha256:c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"},
     {file = "idna-3.6.tar.gz", hash = "sha256:9ecdbbd083b06798ae1e86adcbfe8ab1479cf864e4ee30fe4e46a003d12491ca"},
 ]
+
+[[package]]
+name = "importlib-resources"
+version = "6.1.1"
+description = "Read resources from Python packages"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "importlib_resources-6.1.1-py3-none-any.whl", hash = "sha256:e8bf90d8213b486f428c9c39714b920041cb02c184686a3dee24905aaa8105d6"},
+    {file = "importlib_resources-6.1.1.tar.gz", hash = "sha256:3893a00122eafde6894c59914446a512f728a0c1a45f9bb9b63721b6bacf0b4a"},
+]
+
+[package.extras]
+docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (<7.2.5)", "sphinx (>=3.5)", "sphinx-lint"]
+testing = ["pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy (>=0.9.1)", "pytest-ruff", "zipp (>=3.17)"]
 
 [[package]]
 name = "iniconfig"
@@ -2985,6 +3029,17 @@ docs = ["ipykernel", "nbconvert", "numpydoc", "pydata_sphinx_theme (==0.10.0rc2)
 stats = ["scipy (>=1.3)", "statsmodels (>=0.10)"]
 
 [[package]]
+name = "selfies"
+version = "2.1.1"
+description = "SELFIES (SELF-referencIng Embedded Strings) is a general-purpose, sequence-based, robust representation of semantically constrained graphs."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "selfies-2.1.1-py3-none-any.whl", hash = "sha256:5723d53cd75e8229ff4ecef5a7872ce5151ad2ef83a0898b529ee5666a91621b"},
+    {file = "selfies-2.1.1.tar.gz", hash = "sha256:d8066b47e746a6ca5111143e5365ffebbb56b0b244328a61dd4e344d0125f84b"},
+]
+
+[[package]]
 name = "send2trash"
 version = "1.8.2"
 description = "Send file to trash natively under Mac OS X, Windows and Linux"
@@ -3379,4 +3434,4 @@ cpu = ["jax"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "bc3f408f30ee445999316692dcecaef50a76ef4c776cf3910212f06af6136443"
+content-hash = "b795d7ef993ff26f063f209296cacc661365727ee7adcde997f3950d90ffee73"
