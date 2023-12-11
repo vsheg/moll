@@ -2,6 +2,8 @@
 This module contains implementations of various metrics for comparing vectors.
 """
 
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 from jax import Array, lax
@@ -10,7 +12,7 @@ from public import public
 
 
 @public
-@jax.jit
+@partial(jax.jit, inline=True)
 def mismatches(p1: Array, p2: Array):
     """
     Computes the L0-norm distance between two vectors.
@@ -28,7 +30,7 @@ def mismatches(p1: Array, p2: Array):
 
 
 @public
-@jax.jit
+@partial(jax.jit, inline=True)
 def manhattan(p1: Array, p2: Array):
     """
     Computes the Manhattan distance between two vectors.
@@ -46,7 +48,7 @@ def manhattan(p1: Array, p2: Array):
 
 
 @public
-@jax.jit
+@partial(jax.jit, inline=True)
 def euclidean(p1: Array, p2: Array):
     """
     Computes the Euclidean distance between two vectors.
@@ -64,7 +66,7 @@ def euclidean(p1: Array, p2: Array):
 
 
 @public
-@jax.jit
+@partial(jax.jit, inline=True)
 def cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
@@ -82,6 +84,7 @@ def cosine(a: Array, b: Array):
 
 
 @public
+@partial(jax.jit, inline=True)
 def negative_cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
@@ -90,7 +93,7 @@ def negative_cosine(a: Array, b: Array):
 
 
 @public
-@jax.jit
+@partial(jax.jit, inline=True)
 def tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto coefficient between two vectors.
@@ -114,7 +117,7 @@ def tanimoto(a: Array, b: Array):
 
 
 @public
-@jax.jit
+@partial(jax.jit, inline=True)
 def one_minus_tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto distance between two vectors.
