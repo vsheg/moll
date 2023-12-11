@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Literal, Protocol, TypeAlias, TypeVar
 
 from jax import Array
@@ -21,3 +21,8 @@ class Indexable(Protocol[T]):
 
     def __len__(self) -> int:
         ...
+
+
+V = TypeVar("V")
+
+OneOrMany: TypeAlias = V | Iterable[V]
