@@ -168,7 +168,7 @@ class OnlineDiversityPicker:
 
         if isinstance(data, Array) and data.dtype is not dtype:
             logger.warning(
-                "Array with dtype={data.dtype} was converted to dtype={dtype}"
+                f"Array with dtype={data.dtype} was converted to dtype={dtype}"
             )
 
         return jnp.array(data, dtype=dtype)
