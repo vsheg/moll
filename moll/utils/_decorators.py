@@ -13,22 +13,23 @@ def args_support(deco: Callable):
     """
     Decorator to allow a decorator to be used with or without arguments.
 
-    >>> @args_support
-    ... def constant_decorator(fn, const=10):
-    ...     return lambda: 10
-    ...
+    Examples:
+        >>> @args_support
+        ... def constant_decorator(fn, const=10):
+        ...     return lambda: 10
+        ...
 
-    >>> @constant_decorator
-    ... def fn20():
-    ...     return 20
-    >>> fn20()
-    10
+        >>> @constant_decorator
+        ... def fn20():
+        ...     return 20
+        >>> fn20()
+        10
 
-    >>> @constant_decorator(const=30)
-    ... def fn40():
-    ...     return 40
-    >>> fn40()
-    10
+        >>> @constant_decorator(const=30)
+        ... def fn40():
+        ...     return 40
+        >>> fn40()
+        10
     """
 
     @wraps(deco)
@@ -50,17 +51,18 @@ def listify(
     """
     Decorator to convert a generator function into a list-returning function.
 
-    >>> @listify
-    ... def numbers():
-    ...     yield from range(5)
-    >>> numbers()
-    [0, 1, 2, 3, 4]
+    Examples:
+        >>> @listify
+        ... def numbers():
+        ...     yield from range(5)
+        >>> numbers()
+        [0, 1, 2, 3, 4]
 
-    >>> @listify
-    ... def empty():
-    ...     if False: yield
-    >>> empty()
-    []
+        >>> @listify
+        ... def empty():
+        ...     if False: yield
+        >>> empty()
+        []
     """
 
     @wraps(fn)
@@ -79,17 +81,18 @@ def no_warnings(
     """
     Decorator to suppress warnings in a function.
 
-    >>> import warnings
-    >>> @no_warnings
-    ... def warn():
-    ...     warnings.warn("Boooo!!!", UserWarning)
-    >>> warn()
+    Examples:
+        >>> import warnings
+        >>> @no_warnings
+        ... def warn():
+        ...     warnings.warn("Boooo!!!", UserWarning)
+        >>> warn()
 
-    >>> from rdkit import Chem
-    >>> @no_warnings
-    ... def warn_rdkit():
-    ...     Chem.MolFromSmiles('C1=CC=CC=C1O')
-    >>> warn_rdkit()
+        >>> from rdkit import Chem
+        >>> @no_warnings
+        ... def warn_rdkit():
+        ...     Chem.MolFromSmiles('C1=CC=CC=C1O')
+        >>> warn_rdkit()
     """
     RDLogger = None
     if suppress_rdkit:
@@ -119,24 +122,25 @@ def no_exceptions(
     """
     Decorator to catch exceptions and return a default value instead.
 
-    >>> @no_exceptions(default='Error occurred')
-    ... def bad_fn(x):
-    ...     return x / 0
-    >>> bad_fn(10)
-    'Error occurred'
+    Examples:
+        >>> @no_exceptions(default='Error occurred')
+        ... def bad_fn(x):
+        ...     return x / 0
+        >>> bad_fn(10)
+        'Error occurred'
 
-    >>> @no_exceptions(exceptions=ZeroDivisionError)
-    ... def bad_fn(x):
-    ...     return x / 0
-    >>> bad_fn(10)
+        >>> @no_exceptions(exceptions=ZeroDivisionError)
+        ... def bad_fn(x):
+        ...     return x / 0
+        >>> bad_fn(10)
 
-    >>> @no_exceptions(exceptions=TypeError)
-    ... def bad_fn(x):
-    ...     return x / 0
-    >>> bad_fn(10)
-    Traceback (most recent call last):
-        ...
-    ZeroDivisionError: division by zero
+        >>> @no_exceptions(exceptions=TypeError)
+        ... def bad_fn(x):
+        ...     return x / 0
+        >>> bad_fn(10)
+        Traceback (most recent call last):
+            ...
+        ZeroDivisionError: division by zero
     """
 
     @wraps(fn)
@@ -158,23 +162,24 @@ def filter_(
     """
     Decorator to filter iterable items returned by a function by a value.
 
-    >>> @filter_
-    ... def numbers():
-    ...     return [5, 15, None, 25]
-    >>> numbers()
-    [5, 15, 25]
+    Examples:
+        >>> @filter_
+        ... def numbers():
+        ...     return [5, 15, None, 25]
+        >>> numbers()
+        [5, 15, 25]
 
-    >>> @filter_
-    ... def numbers():
-    ...     yield from [5, 15, None, 25]
-    >>> numbers()
-    [5, 15, 25]
+        >>> @filter_
+        ... def numbers():
+        ...     yield from [5, 15, None, 25]
+        >>> numbers()
+        [5, 15, 25]
 
-    >>> @filter_(cond=lambda x: x > 10)
-    ... def numbers():
-    ...     return [5, 15, 20, 25]
-    >>> numbers()
-    [15, 20, 25]
+        >>> @filter_(cond=lambda x: x > 10)
+        ... def numbers():
+        ...     return [5, 15, 20, 25]
+        >>> numbers()
+        [15, 20, 25]
     """
 
     @wraps(fn)
