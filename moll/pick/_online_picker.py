@@ -3,10 +3,12 @@ Online algorithm for picking a subset of points based on their distance.
 """
 
 
+from collections.abc import Iterable
+
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
-from jax.typing import DTypeLike
+from jax.typing import ArrayLike, DTypeLike
 from loguru import logger
 from public import public
 
@@ -156,38 +158,49 @@ class OnlineDiversityPicker:
         # Update labels
         self._labels[idxs] = labels[acceptance_mask]
 
-    def update(self, points: Array, labels: Indexable | None = None) -> int:
+    @staticmethod
+    def _convert(data: Iterable, dtype: DTypeLike | None) -> Array:
+        """
+        Convert data to JAX array.
+        """
+        if not isinstance(data, Array | list):
+            data = list(data)
+
+        if isinstance(data, Array) and data.dtype is not dtype:
+            logger.warning(
+                "Array with dtype={data.dtype} was converted to dtype={dtype}"
+            )
+
+        return jnp.array(data, dtype=dtype)
+
+    def update(self, points: Iterable, labels: Indexable | None = None) -> int:
         """
         Add a batch of points to the picker.
         """
+        # Convert to JAX array if needed
+        points = self._convert(points, dtype=self.dtype)
+
         batch_size = len(points)
         n_accepted = 0
 
         # Check labels
 
-        if not labels:
+        if labels is None:
             labels = np.arange(self.n_seen, self.n_seen + len(points))
         elif len(labels) != batch_size:
             raise ValueError(
                 f"Expected number of labels={len(labels)} to match batch_size={batch_size}"
             )
 
-        # Check dtype
-
-        if points.dtype is jnp.float64:
-            points = points.astype(self.dtype)  # FIXME
-            logger.warning(
-                "Downcasting to float32. If float64 is needed, set dtype=jnp.float64"
-                " and configure JAX to support it."
-            )
-
-        # Init if empty
+        # Init internal data storage with first point if picker is empty
 
         if was_empty := self.is_empty():
             self._init_data(points[0], labels[0])
+            n_accepted += 1
+
+            # Continue with the rest of the points
             points = points[1:]
             labels = labels[1:]
-            n_accepted += 1
 
         # Process remaining points
 
@@ -228,9 +241,10 @@ class OnlineDiversityPicker:
         """
         Add a point to the picker.
         """
-        points = jnp.array([point])
-        labels = [label] if label else None
-        n_accepted = self.update(points, labels)  # type: ignore
+        n_accepted = self.update(
+            points=[point],
+            labels=[label] if label else None,  # type: ignore
+        )
         is_accepted = n_accepted > 0
         return is_accepted
 
