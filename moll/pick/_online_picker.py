@@ -51,15 +51,16 @@ class OnlineDiversityPicker:
         """
         Initialize the picker.
         """
-        self.capacity = capacity
+
+        self.capacity: int = capacity
 
         self.similarity_fn: SimilarityFnCallable = self._init_similarity_fn(
             similarity_fn
         )
 
-        self.k_neighbors = self._init_k_neighbors(k_neighbors, capacity)
+        self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
-        self.p = p
+        self.p: float | int = p
         self.potential_fn: PotentialFnCallable = self._init_potential_fn(
             potential_fn, self.p
         )
