@@ -3,13 +3,14 @@ Online algorithm for picking a subset of points based on their distance.
 """
 
 
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
 from jax.typing import ArrayLike, DTypeLike
 from loguru import logger
+from numpy.typing import NDArray
 from public import public
 
 from moll.metrics import (
@@ -47,6 +48,9 @@ class OnlineDiversityPicker:
         threshold: float = -jnp.inf,
         dtype: DTypeLike | None = None,
     ):
+        """
+        Initialize the picker.
+        """
         self.capacity = capacity
 
         self.similarity_fn: SimilarityFnCallable = self._init_similarity_fn(
@@ -60,7 +64,7 @@ class OnlineDiversityPicker:
             potential_fn, self.p
         )
 
-        self.threshold = threshold
+        self.threshold: float = threshold
 
         self._data: Array | None = None
         self.dtype: DTypeLike | None = dtype
@@ -68,7 +72,7 @@ class OnlineDiversityPicker:
 
         self.n_seen: int = 0
         self.n_accepted: int = 0
-        self.n_valid_points: int = 0
+        self._n_valid: int = 0
 
     def _init_k_neighbors(self, k_neighbors: int | float, capacity: int) -> int:
         if isinstance(k_neighbors, float):
@@ -137,15 +141,29 @@ class OnlineDiversityPicker:
         self._data = self._data.at[0].set(point)
         self._labels[0] = label
 
-        self.n_valid_points += 1
+        self._n_valid += 1
         self.n_accepted += 1
         self.n_seen += 1
+
+    def _convert_labels(self, labels: Indexable[Hashable]) -> NDArray:
+        """
+        Convert labels to NumPy array.
+        """
+        if isinstance(labels, np.ndarray):
+            return labels
+
+        # If we create the array with a tuple-like label, we get a 2D array.
+        # Besides, an empty 1D array is created explicitly, and then it can be filled
+        array = np.empty(len(labels), dtype=object)  # init 1D array
+        array[:] = labels  # fill it
+
+        return array
 
     def _update_labels(
         self,
         updated_idxs: Array,
         acceptance_mask: Array,
-        labels: Indexable,
+        labels: NDArray,
     ):
         idxs = updated_idxs[acceptance_mask]
 
@@ -159,7 +177,7 @@ class OnlineDiversityPicker:
         self._labels[idxs] = labels[acceptance_mask]
 
     @staticmethod
-    def _convert(data: Iterable, dtype: DTypeLike | None) -> Array:
+    def _convert_data(data: Iterable, dtype: DTypeLike | None) -> Array:
         """
         Convert data to JAX array.
         """
@@ -168,12 +186,14 @@ class OnlineDiversityPicker:
 
         return jnp.array(data, dtype=dtype)
 
-    def update(self, points: Iterable, labels: Indexable | None = None) -> int:
+    def update(
+        self, points: Iterable, labels: Indexable[Hashable] | None = None
+    ) -> int:
         """
         Add a batch of points to the picker.
         """
         # Convert to JAX array if needed
-        points = self._convert(points, dtype=self.dtype)
+        points = self._convert_data(points, dtype=self.dtype)
 
         batch_size = len(points)
         n_accepted = 0
@@ -186,6 +206,8 @@ class OnlineDiversityPicker:
             raise ValueError(
                 f"Expected number of labels={len(labels)} to match batch_size={batch_size}"
             )
+        else:
+            labels = self._convert_labels(labels)
 
         # Init internal data storage with first point if picker is empty
 
@@ -213,14 +235,14 @@ class OnlineDiversityPicker:
                 potential_fn=self.potential_fn,
                 k_neighbors=self.k_neighbors,
                 threshold=self.threshold,
-                n_valid=self.n_valid_points,
+                n_valid=self._n_valid,
             )
 
             # Update points data
             self._data = data_updated
 
             # Update counters
-            self.n_valid_points += int(n_appended)
+            self._n_valid += int(n_appended)
             n_accepted += int(n_appended) + int(n_updated)
 
             # Update labels
@@ -232,7 +254,7 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def add(self, point: Array, label=None) -> bool:
+    def add(self, point: Array, label: Hashable | None = None) -> bool:
         """
         Add a point to the picker.
         """
@@ -243,7 +265,7 @@ class OnlineDiversityPicker:
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def warm(self, points: Array, labels=None):
+    def warm(self, points: Array, labels: Indexable[Hashable] | None = None):
         """
         Initialize the picker with a set of points.
         """
@@ -255,7 +277,7 @@ class OnlineDiversityPicker:
         if labels:
             assert len(labels) == batch_size
         else:
-            labels = range(len(points))
+            labels = np.arange(len(points))
 
         self._init_data(points[0], labels[0])
         self._data = self._data.at[1:batch_size].set(points[1:])  # type: ignore
@@ -263,7 +285,7 @@ class OnlineDiversityPicker:
 
         self.n_accepted += batch_size - 1
         self.n_seen += batch_size - 1
-        self.n_valid_points += batch_size - 1
+        self._n_valid += batch_size - 1
 
     @property
     def n_rejected(self) -> int:
@@ -272,12 +294,13 @@ class OnlineDiversityPicker:
         """
         return self.n_seen - self.n_accepted
 
+    @property
     def size(self) -> int:
         """
         Return the number of points in the picker.
         """
-        assert self.n_valid_points <= self.capacity
-        return self.n_valid_points
+        assert self._n_valid <= self.capacity
+        return self._n_valid
 
     def is_full(self) -> bool:
         """
@@ -285,7 +308,7 @@ class OnlineDiversityPicker:
         """
         if self.is_empty():
             return False
-        return self.capacity == self.size()
+        return self.capacity == self.size
 
     def is_empty(self) -> bool:
         """
@@ -301,7 +324,7 @@ class OnlineDiversityPicker:
         """
         if self._data is None:
             return None
-        return self._labels[: self.n_valid_points].tolist()
+        return self._labels[: self._n_valid].tolist()
 
     @property
     def points(self) -> Array | None:
@@ -310,7 +333,7 @@ class OnlineDiversityPicker:
         """
         if self._data is None:
             return None
-        return self._data[: self.n_valid_points]
+        return self._data[: self._n_valid]
 
     @property
     def dim(self) -> int | None:
