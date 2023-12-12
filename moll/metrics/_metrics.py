@@ -6,14 +6,14 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-from jax import Array, lax
-from jax.numpy import array as A  # noqa: F401 (unused import), used in doctests
+from jax import lax
+from jax.typing import ArrayLike
 from public import public
 
 
 @public
 @partial(jax.jit, inline=True)
-def mismatches(p1: Array, p2: Array):
+def mismatches(p1: ArrayLike, p2: ArrayLike):
     """
     Computes the L0-norm distance between two vectors.
 
@@ -34,7 +34,7 @@ def mismatches(p1: Array, p2: Array):
 
 @public
 @partial(jax.jit, inline=True)
-def manhattan(p1: Array, p2: Array):
+def manhattan(p1: ArrayLike, p2: ArrayLike):
     """
     Computes the Manhattan distance between two vectors.
 
@@ -55,7 +55,7 @@ def manhattan(p1: Array, p2: Array):
 
 @public
 @partial(jax.jit, inline=True)
-def euclidean(p1: Array, p2: Array):
+def euclidean(p1: ArrayLike, p2: ArrayLike):
     """
     Computes the Euclidean distance between two vectors.
 
@@ -76,7 +76,7 @@ def euclidean(p1: Array, p2: Array):
 
 @public
 @partial(jax.jit, inline=True)
-def cosine(a: Array, b: Array):
+def cosine(a: ArrayLike, b: ArrayLike):
     """
     Computes the cosine distance between two vectors.
 
@@ -97,7 +97,7 @@ def cosine(a: Array, b: Array):
 
 @public
 @partial(jax.jit, inline=True)
-def negative_cosine(a: Array, b: Array):
+def negative_cosine(a: ArrayLike, b: ArrayLike):
     """
     Computes the cosine distance between two vectors.
 
@@ -116,7 +116,7 @@ def negative_cosine(a: Array, b: Array):
 
 @public
 @partial(jax.jit, inline=True)
-def tanimoto(a: Array, b: Array):
+def tanimoto(a: ArrayLike, b: ArrayLike):
     """
     Computes the Tanimoto coefficient between two vectors.
 
@@ -144,7 +144,7 @@ def tanimoto(a: Array, b: Array):
 
 @public
 @partial(jax.jit, inline=True)
-def one_minus_tanimoto(a: Array, b: Array):
+def one_minus_tanimoto(a: ArrayLike, b: ArrayLike):
     """
     Computes the Tanimoto distance between two vectors.
 
