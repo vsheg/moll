@@ -80,13 +80,17 @@ select = [
     "D213", # start docstring on a second line
 ]
 ignore = [
-    "D212", # start docstring on a first line
-    "D200", # one-line docstring should fit on one line 
     "D103", # missing docstring in public function
     "D104", # missing docstring in public package
+    "D105", # missing docstring in magic method
+    "D200", # one-line docstring should fit on one line 
+    "D202", # no blank lines allowed after function docstring
+    "D212", # start docstring on a first line
 ]
 pydocstyle.convention = "google"
 
+[tool.ruff.per-file-ignores]
+"moll/**/test*" = ["D100"]
 
 [[tool.poetry.source]]
 name = "PyPI"
