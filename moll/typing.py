@@ -24,25 +24,39 @@ SimilarityFnCallable: TypeAlias = Callable[[Array, Array], ArrayLike]
 PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
 PotentialFnCallable: TypeAlias = Callable[[float], ArrayLike]
 
-_T = TypeVar("_T", covariant=True)
+T = TypeVar("T", covariant=True)
 
 
 @runtime_checkable
-class Indexable(Protocol[_T]):
+class Indexable(Protocol[T]):
     """
     Protocol for objects that can be accessed by index or slice.
     """
 
-    def __getitem__(self, key) -> _T:
+    def __getitem__(self, key) -> T:
         ...
 
     def __len__(self) -> int:
         ...
 
 
-_V = TypeVar("_V")
+del T
 
-OneOrMany: TypeAlias = _V | Iterable[_V]
+T = TypeVar("T")
+
+OneOrMany: TypeAlias = T | Iterable[T]
+
+del T
 
 # Remove third-party imports from the public API
-del Callable, Iterable, Literal, Protocol, TypeAlias, TypeVar, Array, ArrayLike
+del (
+    Callable,
+    Iterable,
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    Array,
+    ArrayLike,
+    runtime_checkable,
+)
