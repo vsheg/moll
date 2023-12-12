@@ -3,13 +3,14 @@ Online algorithm for picking a subset of points based on their distance.
 """
 
 
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
 from jax.typing import ArrayLike, DTypeLike
 from loguru import logger
+from numpy.typing import NDArray
 from public import public
 
 from moll.metrics import (
@@ -141,11 +142,25 @@ class OnlineDiversityPicker:
         self.n_accepted += 1
         self.n_seen += 1
 
+    def _convert_labels(self, labels: Indexable[Hashable]) -> NDArray:
+        """
+        Convert labels to NumPy array.
+        """
+        if isinstance(labels, np.ndarray):
+            return labels
+
+        # If we create the array with a tuple-like label, we get a 2D array.
+        # Besides, an empty 1D array is created explicitly, and then it can be filled
+        array = np.empty(len(labels), dtype=object)  # init 1D array
+        array[:] = labels  # fill it
+
+        return array
+
     def _update_labels(
         self,
         updated_idxs: Array,
         acceptance_mask: Array,
-        labels: Indexable,
+        labels: NDArray,
     ):
         idxs = updated_idxs[acceptance_mask]
 
@@ -159,7 +174,7 @@ class OnlineDiversityPicker:
         self._labels[idxs] = labels[acceptance_mask]
 
     @staticmethod
-    def _convert(data: Iterable, dtype: DTypeLike | None) -> Array:
+    def _convert_data(data: Iterable, dtype: DTypeLike | None) -> Array:
         """
         Convert data to JAX array.
         """
@@ -173,12 +188,14 @@ class OnlineDiversityPicker:
 
         return jnp.array(data, dtype=dtype)
 
-    def update(self, points: Iterable, labels: Indexable | None = None) -> int:
+    def update(
+        self, points: Iterable, labels: Indexable[Hashable] | None = None
+    ) -> int:
         """
         Add a batch of points to the picker.
         """
         # Convert to JAX array if needed
-        points = self._convert(points, dtype=self.dtype)
+        points = self._convert_data(points, dtype=self.dtype)
 
         batch_size = len(points)
         n_accepted = 0
@@ -191,6 +208,8 @@ class OnlineDiversityPicker:
             raise ValueError(
                 f"Expected number of labels={len(labels)} to match batch_size={batch_size}"
             )
+        else:
+            labels = self._convert_labels(labels)
 
         # Init internal data storage with first point if picker is empty
 
@@ -237,7 +256,7 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def add(self, point: Array, label=None) -> bool:
+    def add(self, point: Array, label: Hashable | None = None) -> bool:
         """
         Add a point to the picker.
         """
@@ -248,7 +267,7 @@ class OnlineDiversityPicker:
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def warm(self, points: Array, labels=None):
+    def warm(self, points: Array, labels: Indexable[Hashable] | None = None):
         """
         Initialize the picker with a set of points.
         """
@@ -260,7 +279,7 @@ class OnlineDiversityPicker:
         if labels:
             assert len(labels) == batch_size
         else:
-            labels = range(len(points))
+            labels = np.arange(len(points))
 
         self._init_data(points[0], labels[0])
         self._data = self._data.at[1:batch_size].set(points[1:])  # type: ignore
