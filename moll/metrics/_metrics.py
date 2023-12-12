@@ -18,15 +18,17 @@ def mismatches(p1: Array, p2: Array):
     Computes the L0-norm distance between two vectors.
 
     Examples:
-        >>> mismatches(A([1, 2, 3]), A([1, 2, 3])).item()
-        0.0
+        >>> mismatches([1, 2, 3], [1, 2, 3])
+        Array(0., dtype=float32)
 
-        >>> mismatches(A([1, 2, 3]), A([1, 2, -3])).item()
-        1.0
+        >>> mismatches([1, 2, 3], [1, 2, -3])
+        Array(1., dtype=float32)
 
-        >>> mismatches(A([1, 2, 3]), A([4, 5, 6])).item()
-        3.0
+        >>> mismatches([1, 2, 3], [4, 5, 6])
+        Array(3., dtype=float32)
     """
+    p1 = jnp.asarray(p1)
+    p2 = jnp.asarray(p2)
     return jnp.sum(p1 != p2).astype(float)
 
 
@@ -37,15 +39,17 @@ def manhattan(p1: Array, p2: Array):
     Computes the Manhattan distance between two vectors.
 
     Examples:
-        >>> manhattan(A([1, 2, 3]), A([1, 2, 3])).item()
-        0.0
+        >>> manhattan([1, 2, 3], [1, 2, 3])
+        Array(0., dtype=float32)
 
-        >>> manhattan(A([1, 2, 3]), A([1, 2, 4])).item()
-        1.0
+        >>> manhattan([1, 2, 3], [1, 2, 4])
+        Array(1., dtype=float32)
 
-        >>> manhattan(A([1, 2, 3]), A([4, 5, 6])).item()
-        9.0
+        >>> manhattan([1, 2, 3], [4, 5, 6])
+        Array(9., dtype=float32)
     """
+    p1 = jnp.asarray(p1)
+    p2 = jnp.asarray(p2)
     return jnp.sum(jnp.abs(p1 - p2)).astype(float)
 
 
@@ -56,15 +60,17 @@ def euclidean(p1: Array, p2: Array):
     Computes the Euclidean distance between two vectors.
 
     Examples:
-        >>> euclidean(A([1, 2, 3]), A([1, 2, 3])).item()
-        0.0
+        >>> euclidean([1, 2, 3], [1, 2, 3])
+        Array(0., dtype=float32)
 
-        >>> euclidean(A([1, 2, 3]), A([1, 2, 4])).item()
-        1.0
+        >>> euclidean([1, 2, 3], [1, 2, 4])
+        Array(1., dtype=float32)
 
-        >>> euclidean(A([1, 2, 3]), A([4, 5, 6])).item()
-        5.19615...
+        >>> euclidean([1, 2, 3], [4, 5, 6])
+        Array(5.196152, dtype=float32)
     """
+    p1 = jnp.asarray(p1)
+    p2 = jnp.asarray(p2)
     return jnp.linalg.norm(p1 - p2)
 
 
@@ -75,16 +81,18 @@ def cosine(a: Array, b: Array):
     Computes the cosine distance between two vectors.
 
     Examples:
-        >>> cosine(A([1, 0]), A([1, 0])).item()
-        1.0
+        >>> cosine([1, 0], [1, 0])
+        Array(1., dtype=float32)
 
-        >>> cosine(A([1, 0]), A([0, 1])).item()
-        0.0
+        >>> cosine([1, 0], [0, 1])
+        Array(0., dtype=float32)
 
-        >>> cosine(A([1, 0]), A([-1, 0])).item()
-        -1.0
+        >>> cosine([1, 0], [-1, 0])
+        Array(-1., dtype=float32)
     """
-    return (jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))).astype(float)
+    a = jnp.asarray(a)
+    b = jnp.asarray(b)
+    return jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))
 
 
 @public
@@ -94,14 +102,14 @@ def negative_cosine(a: Array, b: Array):
     Computes the cosine distance between two vectors.
 
     Examples:
-        >>> negative_cosine(A([1, 0]), A([1, 0])).item()
-        -1.0
+        >>> negative_cosine([1, 0], [1, 0])
+        Array(-1., dtype=float32)
 
-        >>> negative_cosine(A([1, 0]), A([0, 1])).item()
-        -0.0
+        >>> negative_cosine([1, 0], [0, 1])
+        Array(-0., dtype=float32)
 
-        >>> negative_cosine(A([1, 0]), A([-1, 0])).item()
-        1.0
+        >>> negative_cosine([1, 0], [-1, 0])
+        Array(1., dtype=float32)
     """
     return -cosine(a, b)
 
@@ -113,12 +121,15 @@ def tanimoto(a: Array, b: Array):
     Computes the Tanimoto coefficient between two vectors.
 
     Examples:
-        >>> tanimoto(A([1, 1]), A([1, 0])).item()
-        0.5
+        >>> tanimoto([1, 1], [1, 0])
+        Array(0.5, dtype=float32)
 
-        >>> tanimoto(A([1, 1]), A([0, 0])).item()
-        0.0
+        >>> tanimoto([1, 1], [0, 0])
+        Array(0., dtype=float32)
     """
+    a = jnp.asarray(a)
+    b = jnp.asarray(b)
+
     bitwise_or = jnp.bitwise_or(a, b).sum().astype(float)
     bitwise_and = jnp.bitwise_and(a, b).sum().astype(float)
 
@@ -138,10 +149,10 @@ def one_minus_tanimoto(a: Array, b: Array):
     Computes the Tanimoto distance between two vectors.
 
     Examples:
-        >>> one_minus_tanimoto(A([1, 1]), A([1, 0])).item()
-        0.5
+        >>> one_minus_tanimoto([1, 1], [1, 0])
+        Array(0.5, dtype=float32)
 
-        >>> one_minus_tanimoto(A([1, 1]), A([0, 0])).item()
-        1.0
+        >>> one_minus_tanimoto([1, 1], [0, 0])
+        Array(1., dtype=float32)
     """
     return 1.0 - tanimoto(a, b)
