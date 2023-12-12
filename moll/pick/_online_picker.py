@@ -166,11 +166,6 @@ class OnlineDiversityPicker:
         if not isinstance(data, Array | list):
             data = list(data)
 
-        if isinstance(data, Array) and data.dtype is not dtype:
-            logger.warning(
-                f"Array with dtype={data.dtype} was converted to dtype={dtype}"
-            )
-
         return jnp.array(data, dtype=dtype)
 
     def update(self, points: Iterable, labels: Indexable | None = None) -> int:
