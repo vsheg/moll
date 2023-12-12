@@ -161,7 +161,7 @@ def test_add_many_random(picker, centers_and_points):
     assert picker.is_full() is True
     assert picker.n_accepted >= len(centers)
     assert picker.n_accepted <= len(points)
-    assert picker.size() == len(centers)
+    assert picker.size == len(centers)
     assert picker.n_rejected == picker.n_seen - picker.n_accepted
 
     # Check if at least one point from each cluster is selected
