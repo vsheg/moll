@@ -17,14 +17,15 @@ def mismatches(p1: Array, p2: Array):
     """
     Computes the L0-norm distance between two vectors.
 
-    >>> mismatches(A([1, 2, 3]), A([1, 2, 3])).item()
-    0.0
+    Examples:
+        >>> mismatches(A([1, 2, 3]), A([1, 2, 3])).item()
+        0.0
 
-    >>> mismatches(A([1, 2, 3]), A([1, 2, -3])).item()
-    1.0
+        >>> mismatches(A([1, 2, 3]), A([1, 2, -3])).item()
+        1.0
 
-    >>> mismatches(A([1, 2, 3]), A([4, 5, 6])).item()
-    3.0
+        >>> mismatches(A([1, 2, 3]), A([4, 5, 6])).item()
+        3.0
     """
     return jnp.sum(p1 != p2).astype(float)
 
@@ -35,14 +36,15 @@ def manhattan(p1: Array, p2: Array):
     """
     Computes the Manhattan distance between two vectors.
 
-    >>> manhattan(A([1, 2, 3]), A([1, 2, 3])).item()
-    0.0
+    Examples:
+        >>> manhattan(A([1, 2, 3]), A([1, 2, 3])).item()
+        0.0
 
-    >>> manhattan(A([1, 2, 3]), A([1, 2, 4])).item()
-    1.0
+        >>> manhattan(A([1, 2, 3]), A([1, 2, 4])).item()
+        1.0
 
-    >>> manhattan(A([1, 2, 3]), A([4, 5, 6])).item()
-    9.0
+        >>> manhattan(A([1, 2, 3]), A([4, 5, 6])).item()
+        9.0
     """
     return jnp.sum(jnp.abs(p1 - p2)).astype(float)
 
@@ -53,14 +55,15 @@ def euclidean(p1: Array, p2: Array):
     """
     Computes the Euclidean distance between two vectors.
 
-    >>> euclidean(A([1, 2, 3]), A([1, 2, 3])).item()
-    0.0
+    Examples:
+        >>> euclidean(A([1, 2, 3]), A([1, 2, 3])).item()
+        0.0
 
-    >>> euclidean(A([1, 2, 3]), A([1, 2, 4])).item()
-    1.0
+        >>> euclidean(A([1, 2, 3]), A([1, 2, 4])).item()
+        1.0
 
-    >>> euclidean(A([1, 2, 3]), A([4, 5, 6])).item()
-    5.19615...
+        >>> euclidean(A([1, 2, 3]), A([4, 5, 6])).item()
+        5.19615...
     """
     return jnp.linalg.norm(p1 - p2)
 
@@ -71,14 +74,15 @@ def cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
 
-    >>> cosine(A([1, 0]), A([1, 0])).item()
-    1.0
+    Examples:
+        >>> cosine(A([1, 0]), A([1, 0])).item()
+        1.0
 
-    >>> cosine(A([1, 0]), A([0, 1])).item()
-    0.0
+        >>> cosine(A([1, 0]), A([0, 1])).item()
+        0.0
 
-    >>> cosine(A([1, 0]), A([-1, 0])).item()
-    -1.0
+        >>> cosine(A([1, 0]), A([-1, 0])).item()
+        -1.0
     """
     return (jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))).astype(float)
 
@@ -88,6 +92,16 @@ def cosine(a: Array, b: Array):
 def negative_cosine(a: Array, b: Array):
     """
     Computes the cosine distance between two vectors.
+
+    Examples:
+        >>> negative_cosine(A([1, 0]), A([1, 0])).item()
+        -1.0
+
+        >>> negative_cosine(A([1, 0]), A([0, 1])).item()
+        -0.0
+
+        >>> negative_cosine(A([1, 0]), A([-1, 0])).item()
+        1.0
     """
     return -cosine(a, b)
 
@@ -98,11 +112,12 @@ def tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto coefficient between two vectors.
 
-    >>> tanimoto(A([1, 1]), A([1, 0])).item()
-    0.5
+    Examples:
+        >>> tanimoto(A([1, 1]), A([1, 0])).item()
+        0.5
 
-    >>> tanimoto(A([1, 1]), A([0, 0])).item()
-    0.0
+        >>> tanimoto(A([1, 1]), A([0, 0])).item()
+        0.0
     """
     bitwise_or = jnp.bitwise_or(a, b).sum().astype(float)
     bitwise_and = jnp.bitwise_and(a, b).sum().astype(float)
@@ -121,5 +136,12 @@ def tanimoto(a: Array, b: Array):
 def one_minus_tanimoto(a: Array, b: Array):
     """
     Computes the Tanimoto distance between two vectors.
+
+    Examples:
+        >>> one_minus_tanimoto(A([1, 1]), A([1, 0])).item()
+        0.5
+
+        >>> one_minus_tanimoto(A([1, 1]), A([0, 0])).item()
+        1.0
     """
     return 1.0 - tanimoto(a, b)
