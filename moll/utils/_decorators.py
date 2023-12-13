@@ -14,22 +14,24 @@ def args_support(deco: Callable):
     Decorator to allow a decorator to be used with or without arguments.
 
     Examples:
+        Decorate a decorator with `@args_support`
         >>> @args_support
-        ... def constant_decorator(fn, const=10):
-        ...     return lambda: 10
-        ...
+        ... def deco(fn, return_const=10):
+        ...     return lambda: return_const
 
-        >>> @constant_decorator
-        ... def fn20():
-        ...     return 20
-        >>> fn20()
+        Now the decorator can be used as `@deco`
+        >>> @deco
+        ... def hello_fn():
+        ...     return 'hello'
+        >>> hello_fn()
         10
 
-        >>> @constant_decorator(const=30)
-        ... def fn40():
-        ...     return 40
-        >>> fn40()
-        10
+        Or as `@deco(...)`
+        >>> @deco(return_const=30)
+        ... def goodbye_fn():
+        ...     return 'goodbye'
+        >>> goodbye_fn()
+        30
     """
 
     @wraps(deco)

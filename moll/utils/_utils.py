@@ -170,14 +170,15 @@ def dist_matrix(points, dist_fn, condensed=False):
     """
     Compute pairwise distances between points.
 
-    >>> points = jnp.array([[0, 0], [1, 0]])
-    >>> dist_fn = lambda x, y: jnp.linalg.norm(x - y)
+    Examples:
+        >>> points = jnp.array([[0, 0], [1, 0]])
+        >>> dist_fn = lambda x, y: jnp.linalg.norm(x - y)
 
-    >>> dist_matrix(points, dist_fn).tolist()
-    [[0.0, 1.0], [1.0, 0.0]]
+        >>> dist_matrix(points, dist_fn).tolist()
+        [[0.0, 1.0], [1.0, 0.0]]
 
-    >>> dist_matrix(points, dist_fn, condensed=True).tolist()
-    [1.0]
+        >>> dist_matrix(points, dist_fn, condensed=True).tolist()
+        [1.0]
     """
     dists = jax.vmap(jax.vmap(dist_fn, in_axes=(None, 0)), in_axes=(0, None))(
         points, points

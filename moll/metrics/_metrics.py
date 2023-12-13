@@ -6,14 +6,14 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-from jax import lax
+from jax import Array, lax
 from jax.typing import ArrayLike
 from public import public
 
 
 @public
 @partial(jax.jit, inline=True)
-def mismatches(p1: ArrayLike, p2: ArrayLike):
+def mismatches(u: ArrayLike, v: ArrayLike) -> Array:
     """
     Computes the L0-norm distance between two vectors.
 
@@ -27,14 +27,14 @@ def mismatches(p1: ArrayLike, p2: ArrayLike):
         >>> mismatches([1, 2, 3], [4, 5, 6])
         Array(3., dtype=float32)
     """
-    p1 = jnp.asarray(p1)
-    p2 = jnp.asarray(p2)
-    return jnp.sum(p1 != p2).astype(float)
+    u = jnp.asarray(u)
+    v = jnp.asarray(v)
+    return jnp.sum(u != v).astype(float)
 
 
 @public
 @partial(jax.jit, inline=True)
-def manhattan(p1: ArrayLike, p2: ArrayLike):
+def manhattan(u: ArrayLike, v: ArrayLike) -> Array:
     """
     Computes the Manhattan distance between two vectors.
 
@@ -48,16 +48,16 @@ def manhattan(p1: ArrayLike, p2: ArrayLike):
         >>> manhattan([1, 2, 3], [4, 5, 6])
         Array(9., dtype=float32)
     """
-    p1 = jnp.asarray(p1)
-    p2 = jnp.asarray(p2)
-    return jnp.sum(jnp.abs(p1 - p2)).astype(float)
+    u = jnp.asarray(u)
+    v = jnp.asarray(v)
+    return jnp.sum(jnp.abs(u - v)).astype(float)
 
 
 @public
 @partial(jax.jit, inline=True)
-def euclidean(p1: ArrayLike, p2: ArrayLike):
+def euclidean(u: ArrayLike, v: ArrayLike) -> Array:
     """
-    Computes the Euclidean distance between two vectors.
+    Computes the Euclidean distance (L2-norm) $||x - y||_2$ between two vectors.
 
     Examples:
         >>> euclidean([1, 2, 3], [1, 2, 3])
@@ -69,16 +69,19 @@ def euclidean(p1: ArrayLike, p2: ArrayLike):
         >>> euclidean([1, 2, 3], [4, 5, 6])
         Array(5.196152, dtype=float32)
     """
-    p1 = jnp.asarray(p1)
-    p2 = jnp.asarray(p2)
-    return jnp.linalg.norm(p1 - p2)
+    u = jnp.asarray(u)
+    v = jnp.asarray(v)
+    return jnp.linalg.norm(u - v)
 
 
 @public
 @partial(jax.jit, inline=True)
-def cosine(a: ArrayLike, b: ArrayLike):
-    """
-    Computes the cosine distance between two vectors.
+def cosine(u: ArrayLike, v: ArrayLike) -> Array:
+    r"""
+    Computes the cosine similarity between two vectors:
+    $$ \cos \widehat{\bf u, \bf v} = \dfrac{\bf u \cdot \bf v}{\norm{\bf u} \cdot \norm{\bf v}}, $$
+    this formula follows from the dot product expression:
+    $$ \bf u \cdot \bf v = \norm{\bf u} \cdot \norm{\bf v} \cdot \cos \widehat{\bf u, \bf v}. $$
 
     Examples:
         >>> cosine([1, 0], [1, 0])
@@ -90,14 +93,14 @@ def cosine(a: ArrayLike, b: ArrayLike):
         >>> cosine([1, 0], [-1, 0])
         Array(-1., dtype=float32)
     """
-    a = jnp.asarray(a)
-    b = jnp.asarray(b)
-    return jnp.dot(a, b) / (jnp.linalg.norm(a) * jnp.linalg.norm(b))
+    u = jnp.asarray(u)
+    v = jnp.asarray(v)
+    return jnp.dot(u, v) / (jnp.linalg.norm(u) * jnp.linalg.norm(v))
 
 
 @public
 @partial(jax.jit, inline=True)
-def negative_cosine(a: ArrayLike, b: ArrayLike):
+def negative_cosine(u: ArrayLike, v: ArrayLike) -> Array:
     """
     Computes the cosine distance between two vectors.
 
@@ -111,12 +114,12 @@ def negative_cosine(a: ArrayLike, b: ArrayLike):
         >>> negative_cosine([1, 0], [-1, 0])
         Array(1., dtype=float32)
     """
-    return -cosine(a, b)
+    return -cosine(u, v)
 
 
 @public
 @partial(jax.jit, inline=True)
-def tanimoto(a: ArrayLike, b: ArrayLike):
+def tanimoto(u: ArrayLike, v: ArrayLike) -> Array:
     """
     Computes the Tanimoto coefficient between two vectors.
 
@@ -127,11 +130,11 @@ def tanimoto(a: ArrayLike, b: ArrayLike):
         >>> tanimoto([1, 1], [0, 0])
         Array(0., dtype=float32)
     """
-    a = jnp.asarray(a)
-    b = jnp.asarray(b)
+    u = jnp.asarray(u)
+    v = jnp.asarray(v)
 
-    bitwise_or = jnp.bitwise_or(a, b).sum().astype(float)
-    bitwise_and = jnp.bitwise_and(a, b).sum().astype(float)
+    bitwise_or = jnp.bitwise_or(u, v).sum().astype(float)
+    bitwise_and = jnp.bitwise_and(u, v).sum().astype(float)
 
     # Check for the case where both vectors are all zeros and return 0.0 in that case
 
@@ -144,7 +147,7 @@ def tanimoto(a: ArrayLike, b: ArrayLike):
 
 @public
 @partial(jax.jit, inline=True)
-def one_minus_tanimoto(a: ArrayLike, b: ArrayLike):
+def one_minus_tanimoto(u: ArrayLike, v: ArrayLike) -> Array:
     """
     Computes the Tanimoto distance between two vectors.
 
@@ -155,4 +158,4 @@ def one_minus_tanimoto(a: ArrayLike, b: ArrayLike):
         >>> one_minus_tanimoto([1, 1], [0, 0])
         Array(1., dtype=float32)
     """
-    return 1.0 - tanimoto(a, b)
+    return 1.0 - tanimoto(u, v)
