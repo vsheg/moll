@@ -2,8 +2,15 @@ site_name: "<i>moll</i> docs"
 repo_url: "https://github.com/vsheg/moll"
 repo_name: "vsheg/moll"
 
-strict: true
 docs_dir: docs
+
+nav:
+  - Intro: index.md
+  - Usage:
+      - A: notebooks/diversity.ipynb
+      - B: notebooks/chembl-1-percent.ipynb
+      - C: notebooks/zinc20.ipynb
+  - API: api/
 
 theme:
   name: material
@@ -31,8 +38,7 @@ plugins:
   - gen-files:
       scripts:
         - scripts/auto_doc_pages.py
-  - literate-nav:
-      nav_file: SUMMARY.md
+  - literate-nav
   - mkdocstrings:
       handlers:
         python:
@@ -44,12 +50,15 @@ plugins:
             inherited_members: true
             merge_init_into_class: true
             show_root_heading: true
-            show_source: true
+            show_source: false
             show_root_full_path: true
             show_symbol_type_heading: true
             show_symbol_type_toc: true
             signature_crossrefs: true
             summary: true
+  - mkdocs-jupyter:
+      execute: false
+      include: ["*.ipynb"]
 
 markdown_extensions:
   - pymdownx.arithmatex:
@@ -62,3 +71,4 @@ extra_javascript:
 
 extra_css:
   - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.css
+  - css.css

@@ -9,3 +9,6 @@ _site
 
 reference/
 site/
+
+docs/notebooks
+docs/index.md

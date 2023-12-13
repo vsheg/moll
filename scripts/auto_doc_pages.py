@@ -18,19 +18,13 @@ def attr_repr(name: str) -> str:
 
 
 # Create package index page
-with mkdocs_gen_files.open("reference/index.md", "a+") as file:
-    file.write("::: moll")
+with mkdocs_gen_files.open("api/index.md", "a+") as file:
+    file.write("::: moll\n")
 
 # Create pages for public API objects
 for module_name, module_obj in getmembers(moll, ismodule):
     if module_name.startswith("_"):
         continue
-
-    # Create module index page
-    with mkdocs_gen_files.open(
-        module_index_path := f"reference/{module_name}/index.md", "a+"
-    ) as file:
-        print(f"::: moll.{module_name}", file=file)
 
     for public_name, _public_obj in getmembers(module_obj):
         if public_name.startswith("_"):
@@ -38,11 +32,7 @@ for module_name, module_obj in getmembers(moll, ismodule):
 
         # Create page for public object
         with mkdocs_gen_files.open(
-            ref_path := f"reference/{module_name}/{public_name}.md", "a+"
+            ref_path := f"api/{module_name}.md", "a+"
         ) as file:
             file.write(f"::: moll.{module_name}.{public_name}\n")
 
-        nav[("API", module_repr(module_name), attr_repr(public_name))] = ref_path
-
-with mkdocs_gen_files.open("SUMMARY.md", "w") as nav_file:
-    nav_file.writelines(nav.build_literate_nav())

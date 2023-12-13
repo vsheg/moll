@@ -1,8 +1,15 @@
 render:
 	quarto render
 
-docs:
+prep_docs:
+	rsync -av notebooks/ docs/notebooks/
+	rsync -av README.md docs/index.md
+
+docs: prep_docs
 	poetry run mkdocs build
+
+serve: prep_docs
+	poetry run mkdocs serve
 
 notebooks:
 	jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
