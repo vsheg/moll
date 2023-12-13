@@ -6,3 +6,6 @@ __pycache__/
 
 /.quarto/
 _site
+
+reference/
+site/

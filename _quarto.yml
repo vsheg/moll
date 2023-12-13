@@ -2,13 +2,21 @@ project:
   type: website
   render:
     - README.md
-    - notebooks/*.ipynb
+    - notebooks/
+    - reference/
 
 website:
   title: "moll docs"
   repo-url: https://github.com/vsheg/moll
   repo-actions: [issue]
   page-navigation: true
+  navbar:
+    background: light
+    right:
+      - text: Examples
+        href: notebooks/
+      - text: API
+        href: reference/
   sidebar:
     contents:
       - README.md
@@ -20,6 +28,30 @@ website:
     tools:
       - icon: github
         url: https://github.com/vsheg/moll
+
+metadata-files:
+  - _sidebar.yml
+
+quartodoc:
+  package: moll
+  parser: google
+  style: pkgdown
+  sidebar: _sidebar.yml
+  dynamic: true
+  options:
+    include_imports: true
+    include_attributes: true
+    include_classes: true
+    include_functions: true
+    children: separate
+
+  sections:
+    - title: Pickers
+      contents:
+        - name: pick
+    - title: Utils
+      contents:
+        - utils
 
 format:
   html:

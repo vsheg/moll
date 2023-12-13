@@ -1,6 +1,9 @@
 render:
 	quarto render
 
+docs:
+	poetry run mkdocs build
+
 notebooks:
 	jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 
@@ -14,4 +17,4 @@ cuda12_local: clean
 	poetry install
 	poetry run pip install --upgrade "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
-.PHONY: render notebooks clean
+.PHONY: render docs notebooks clean
