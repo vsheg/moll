@@ -1,0 +1,74 @@
+site_name: "<i>moll</i> docs"
+repo_url: "https://github.com/vsheg/moll"
+repo_name: "vsheg/moll"
+
+docs_dir: docs
+
+nav:
+  - Intro: index.md
+  - Usage:
+      - A: notebooks/diversity.ipynb
+      - B: notebooks/chembl-1-percent.ipynb
+      - C: notebooks/zinc20.ipynb
+  - API: api/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    # - navigation.sections
+    - content.action.view
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+    - media: "(prefers-color-scheme: light)"
+      primary: white
+      accent: white
+    - media: "(prefers-color-scheme: dark)"
+      primary: black
+      accent: black
+
+plugins:
+  - search
+  - minify
+  - section-index
+  - gen-files:
+      scripts:
+        - scripts/auto_doc_pages.py
+  - literate-nav
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 100
+            docstring_section_style: list
+            inherited_members: true
+            merge_init_into_class: true
+            show_root_heading: true
+            show_source: false
+            show_root_full_path: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+  - mkdocs-jupyter:
+      execute: false
+      include: ["*.ipynb"]
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - js/katex.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/contrib/auto-render.min.js
+
+extra_css:
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.css
+  - css.css

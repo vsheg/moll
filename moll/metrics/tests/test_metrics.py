@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import pytest
 
-from ..metrics import tanimoto
+from .._metrics import tanimoto
 
 
 # Tanimoto tests
