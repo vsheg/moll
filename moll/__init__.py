@@ -2,7 +2,7 @@
 This module serves as the initialization file for the `moll` package.
 """
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"  # TODO: automatically update this
 
 # Determine the current execution mode
 import sys as _sys
