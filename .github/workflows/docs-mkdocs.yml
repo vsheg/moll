@@ -1,0 +1,35 @@
+on:
+  workflow_dispatch:
+
+jobs:
+  
+  render:
+    runs-on: ubuntu-latest
+    environment: build
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install 'poetry==${{ vars.TARGET_POETRY_VERSION }}'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ vars.TARGET_PYTHON_VERSION }}"
+          cache: poetry
+      - run: make cpu
+      - run: make docs
+      - uses: actions/upload-pages-artifact@v2
+        with:
+          name: github-pages
+          path: site/
+
+  deploy:
+    needs: render
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/deploy-pages@v2
+        id: deployment
+        
