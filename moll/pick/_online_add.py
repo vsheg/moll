@@ -135,15 +135,17 @@ def _add_point(
 @partial(jax.jit, donate_argnames=["changes"], inline=True)
 def _finalize_updates(changes: Array) -> Array:
     """
+    Remove all but the last occurrence of each change, set all other elements to -1.
+
     Given an array where each element represents whether a change occurred or
-    not, -1 means no change, and a positive integer represents ID of updated
+    not, -1 means "no change", and a positive integer represents ID of an updated
     object in some DB, return an array where only the last occurrence of each
     change is kept.
 
-    Example:
-    [ -1,  0,  2,  1,  1,  2,  2,  -1] <- identify unique changes
-    [      0           1       2     ] <- only last changes are kept, -1s are ignored
-    [ -1,  0, -1, -1,  1, -1,  2,  -1] <- all other elements are set to -1
+    Note:
+        [ -1,  0,  2,  1,  1,  2,  2,  -1] <- identify unique changes
+        [      0           1       2     ] <- only last changes are kept, -1s are ignored
+        [ -1,  0, -1, -1,  1, -1,  2,  -1] <- all other elements are set to -1
     """
     # Take the last occurrence of each change
     changes_reversed = changes[::-1]

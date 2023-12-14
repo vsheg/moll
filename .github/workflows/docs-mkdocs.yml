@@ -1,26 +1,25 @@
 on:
   workflow_dispatch:
-  push:
-    branches: main
-    paths:
-      - 'notebooks/**'
-      - '_quarto.yml'
-
-name: Website
 
 jobs:
   
   render:
     runs-on: ubuntu-latest
+    environment: build
     steps:
       - uses: actions/checkout@v4
-      - uses: quarto-dev/quarto-actions/setup@v2
-      - run: make render
+      - run: pipx install 'poetry==${{ vars.TARGET_POETRY_VERSION }}'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ vars.TARGET_PYTHON_VERSION }}"
+          cache: poetry
+      - run: make cpu
+      - run: make docs
       - uses: actions/upload-pages-artifact@v2
         with:
           name: github-pages
-          path: _site/
-  
+          path: site/
+
   deploy:
     needs: render
     permissions:
