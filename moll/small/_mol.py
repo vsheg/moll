@@ -2,11 +2,12 @@
 This module contains the `Molecule` class.
 """
 
+import sys
 from collections import defaultdict
 from collections.abc import Generator, Hashable
 from dataclasses import dataclass
 from functools import cache
-from typing import Self
+from typing import TypeVar
 
 from numpy.typing import NDArray
 from public import public
@@ -15,6 +16,11 @@ from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
 
 from ..typing import SMILES, FingerprintLiteral, RDKitAtom, RDKitMol
 from ..utils import fold_vector
+
+if sys.version_info[:2] <= (3, 10):
+    Self = TypeVar("Self")
+else:
+    from typing import Self
 
 
 @cache
