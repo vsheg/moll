@@ -6,6 +6,7 @@ from typing import Literal, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 from jax import Array
 from jax.typing import ArrayLike
+from rdkit import Chem
 
 __all__ = [
     "SimilarityFnLiteral",
@@ -23,6 +24,12 @@ SimilarityFnCallable: TypeAlias = Callable[[Array, Array], ArrayLike]
 
 PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
 PotentialFnCallable: TypeAlias = Callable[[float], ArrayLike]
+
+RDKitMol: TypeAlias = Chem.rdchem.Mol
+RDKitAtom: TypeAlias = Chem.rdchem.Atom
+SMILES: TypeAlias = str
+
+FingerprintLiteral = Literal["morgan"]
 
 T = TypeVar("T", covariant=True)
 
@@ -47,6 +54,7 @@ T = TypeVar("T")
 OneOrMany: TypeAlias = T | Iterable[T]
 
 del T
+
 
 # Remove third-party imports from the public API
 del (
