@@ -10,7 +10,7 @@ repository = "https://github.com/vsheg/moll"
 documentation = "https://vsheg.github.io/moll/"
 keywords = ["chemistry", "cheminformatics", "chemoinformatics"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Environment :: GPU :: NVIDIA CUDA",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
