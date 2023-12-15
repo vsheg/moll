@@ -5,7 +5,7 @@ from typing import Any
 
 from public import public
 
-from moll.typing import OneOrMany
+from ..typing import OneOrMany
 
 
 @public
@@ -22,14 +22,14 @@ def args_support(deco: Callable):
         Now the decorator can be used as `@deco`
         >>> @deco
         ... def hello_fn():
-        ...     return 'hello'
+        ...     return "hello"
         >>> hello_fn()
         10
 
         Or as `@deco(...)`
         >>> @deco(return_const=30)
         ... def goodbye_fn():
-        ...     return 'goodbye'
+        ...     return "goodbye"
         >>> goodbye_fn()
         30
     """
@@ -62,7 +62,8 @@ def listify(
 
         >>> @listify
         ... def empty():
-        ...     if False: yield
+        ...     if False:
+        ...         yield
         >>> empty()
         []
     """
@@ -93,7 +94,7 @@ def no_warnings(
         >>> from rdkit import Chem
         >>> @no_warnings
         ... def warn_rdkit():
-        ...     Chem.MolFromSmiles('C1=CC=CC=C1O')
+        ...     Chem.MolFromSmiles("C1=CC=CC=C1O")
         >>> warn_rdkit()
     """
     RDLogger = None
@@ -125,7 +126,7 @@ def no_exceptions(
     Decorator to catch exceptions and return a default value instead.
 
     Examples:
-        >>> @no_exceptions(default='Error occurred')
+        >>> @no_exceptions(default="Error occurred")
         ... def bad_fn(x):
         ...     return x / 0
         >>> bad_fn(10)
@@ -187,5 +188,28 @@ def filter_(
     @wraps(fn)
     def wrapper(*args, **kwargs):
         return list(filter(cond, fn(*args, **kwargs)))
+
+    return wrapper
+
+
+@public
+def unpack_arguments(fn) -> Callable[..., Any]:
+    """
+    Decorator to unpack arguments.
+
+    Examples:
+        >>> @unpack_arguments
+        ... def add(x, y, z=0):
+        ...     return x + y + z
+        >>> add([1, 2])
+        3
+        >>> add((1, 2, 3))
+        6
+
+    """
+
+    @wraps(fn)
+    def wrapper(args):
+        return fn(*args)
 
     return wrapper
