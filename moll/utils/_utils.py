@@ -6,7 +6,9 @@ from typing import TypeAlias
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import Array, lax
+from numpy.typing import NDArray
 from public import public
 
 from ._decorators import listify
@@ -262,3 +264,70 @@ def group_files_by_size(
 
     if batch:
         yield batch
+
+
+@public
+def fold_vector(
+    vec: NDArray,
+    *,
+    dim: int | None = None,
+    n_folds: int | None = None,
+    binary: bool | None = None,
+) -> NDArray:
+    """
+    Reduce vector dimension by folding.
+
+    Examples:
+        Fold to a specific size:
+        >>> vec = np.array([1, 0, 1, 0, 0, 0])
+        >>> fold_vector(vec, dim=3)
+        array([1, 0, 1])
+
+        Fold three times:
+        >>> fold_vector(vec, n_folds=3)
+        array([2, 0])
+
+        Folding a binary vector returns a binary vector:
+        >>> vec_bin = np.array([True, False, True, False, False, False])
+        >>> fold_vector(vec_bin, n_folds=3)
+        array([ True, False])
+
+        Specify `binary=True` to always return a binary vector:
+        >>> fold_vector(vec, n_folds=3, binary=True)
+        array([ True, False])
+
+        Specify `binary=False` to always return a non-binary vector:
+        >>> fold_vector(vec_bin, n_folds=3, binary=False)
+        array([2, 0])
+
+        Only one of `dim` and `n_folds` can be specified.
+        >>> fold_vector(vec, dim=3, n_folds=3)
+        Traceback (most recent call last):
+            ...
+        ValueError: Only one of `dim` and `n_folds` can be specified.
+
+        If no `dim` or `n_folds` is specified, the vector is not folded:
+        >>> fold_vector(vec)
+        array([1, 0, 1, 0, 0, 0])
+    """
+
+    if (sum_ := sum((dim is not None, n_folds is not None))) > 1:
+        raise ValueError("Only one of `dim` and `n_folds` can be specified.")
+    elif sum_ == 0:
+        return vec
+
+    dim = dim or vec.size // n_folds  # type: ignore
+    pad_width = dim - vec.size % dim
+
+    vec = np.pad(vec, (0, pad_width), mode="constant", constant_values=0)
+    vec = vec.reshape(-1, dim)
+
+    folded = np.add.reduce(vec)
+
+    if binary is None:
+        binary = vec.dtype == np.bool_
+
+    if binary:
+        folded = folded > 0
+
+    return folded
