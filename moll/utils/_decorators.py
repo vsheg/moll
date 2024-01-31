@@ -205,7 +205,6 @@ def unpack_arguments(fn) -> Callable[..., Any]:
         3
         >>> add((1, 2, 3))
         6
-
     """
 
     @wraps(fn)

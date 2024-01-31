@@ -2,6 +2,7 @@
 Type aliases and protocols used throughout the package.
 """
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from typing import Literal, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 from jax import Array
@@ -30,6 +31,8 @@ RDKitAtom: TypeAlias = Chem.rdchem.Atom
 SMILES: TypeAlias = str
 
 FingerprintLiteral = Literal["morgan"]
+
+PathLike: TypeAlias = str | Path
 
 T = TypeVar("T", covariant=True)
 

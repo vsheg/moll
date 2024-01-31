@@ -8,6 +8,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import Array, lax
+from jax.typing import ArrayLike, DTypeLike
+from numpy.typing import DTypeLike as NPDTypeLike
 from numpy.typing import NDArray
 from public import public
 
@@ -224,6 +226,7 @@ def dists_to_nearest_neighbor(points, dist_fn):
     return jnp.min(dists_, axis=0)
 
 
+@public
 @listify
 def group_files_by_size(
     files: list[Path], max_batches: int, *, sort_size=True, large_first=False
@@ -267,67 +270,74 @@ def group_files_by_size(
 
 
 @public
-def fold_vector(
+def fold(
     vec: NDArray,
+    dim: int,
     *,
-    dim: int | None = None,
-    n_folds: int | None = None,
-    binary: bool | None = None,
-) -> NDArray:
+    dtype: NPDTypeLike | None = None,
+) -> np.ndarray:
     """
     Reduce vector dimension by folding.
 
     Examples:
         Fold to a specific size:
-        >>> vec = np.array([1, 0, 1, 0, 0, 0])
-        >>> fold_vector(vec, dim=3)
+        >>> fold([1, 0, 1, 0, 0, 0], dim=3)
         array([1, 0, 1])
 
-        Fold three times:
-        >>> fold_vector(vec, n_folds=3)
+        Folding a binary vector returns a binary vector:
+        >>> fold([True, False, True, False, False, False], dim=2)
         array([2, 0])
+
+        Specify `dtype` to change the type of the output:
+        >>> fold([1, 0, 1, 0, 0, 0], dim=2, dtype=bool)
+        array([ True, False])
+    """
+    vec = np.asarray(vec)
+    pad_width = dim - vec.size % dim
+    vec = (
+        np.pad(vec, (0, pad_width), mode="constant", constant_values=0)
+        .reshape(-1, dim)
+        .sum(axis=0)
+    )
+    if dtype is not None:
+        vec = vec.astype(dtype)
+    return vec
+
+
+@partial(
+    jax.jit,
+    static_argnames=["dim", "dtype"],
+    backend="cpu",
+)
+def fold_jax(
+    vec: ArrayLike,
+    dim: int,
+    *,
+    dtype: DTypeLike | None = None,
+) -> Array:
+    """
+    Reduce vector dimension by folding.
+
+    Examples:
+        Fold to a specific size:
+        >>> fold_jax([1, 0, 1, 0, 0, 0], dim=3)
+        Array([1, 0, 1], dtype=int32)
 
         Folding a binary vector returns a binary vector:
-        >>> vec_bin = np.array([True, False, True, False, False, False])
-        >>> fold_vector(vec_bin, n_folds=3)
-        array([ True, False])
+        >>> fold_jax([True, False, True, False, False, False], dim=2)
+        Array([2, 0], dtype=int32)
 
-        Specify `binary=True` to always return a binary vector:
-        >>> fold_vector(vec, n_folds=3, binary=True)
-        array([ True, False])
-
-        Specify `binary=False` to always return a non-binary vector:
-        >>> fold_vector(vec_bin, n_folds=3, binary=False)
-        array([2, 0])
-
-        Only one of `dim` and `n_folds` can be specified.
-        >>> fold_vector(vec, dim=3, n_folds=3)
-        Traceback (most recent call last):
-            ...
-        ValueError: Only one of `dim` and `n_folds` can be specified.
-
-        If no `dim` or `n_folds` is specified, the vector is not folded:
-        >>> fold_vector(vec)
-        array([1, 0, 1, 0, 0, 0])
+        Specify `dtype` to change the type of the output:
+        >>> fold_jax([1, 0, 1, 0, 0, 0], dim=2, dtype=bool)
+        Array([ True, False], dtype=bool)
     """
-
-    if (sum_ := sum((dim is not None, n_folds is not None))) > 1:
-        raise ValueError("Only one of `dim` and `n_folds` can be specified.")
-    elif sum_ == 0:
-        return vec
-
-    dim = dim or vec.size // n_folds  # type: ignore
+    vec = jnp.asarray(vec)
     pad_width = dim - vec.size % dim
-
-    vec = np.pad(vec, (0, pad_width), mode="constant", constant_values=0)
-    vec = vec.reshape(-1, dim)
-
-    folded = np.add.reduce(vec)
-
-    if binary is None:
-        binary = vec.dtype == np.bool_
-
-    if binary:
-        folded = folded > 0
-
-    return folded
+    vec = (
+        jnp.pad(vec, (0, pad_width), mode="constant", constant_values=0)
+        .reshape(-1, dim)
+        .sum(axis=0)
+    )
+    if dtype is not None:
+        vec = vec.astype(dtype)
+    return vec

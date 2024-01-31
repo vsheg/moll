@@ -2,25 +2,25 @@
 This module contains the `Molecule` class.
 """
 
-import sys
 from collections import defaultdict
 from collections.abc import Generator, Hashable
 from dataclasses import dataclass
 from functools import cache
 from typing import TypeVar
 
-from numpy.typing import NDArray
+import numpy as np
+from numpy.typing import DTypeLike, NDArray
 from public import public
 from rdkit import Chem
-from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
+from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors  # type: ignore
 
 from ..typing import SMILES, FingerprintLiteral, RDKitAtom, RDKitMol
-from ..utils import fold_vector
+from ..utils import fold
 
-if sys.version_info[:2] <= (3, 10):
-    Self = TypeVar("Self")
-else:
+try:
     from typing import Self
+except ImportError:
+    Self = TypeVar("Self")
 
 
 @cache
@@ -150,26 +150,27 @@ class Molecule:
         *,
         radius: int,
         size: int,
-        fold_dim: int | None = None,
-        n_folds: int | None = None,
-        binary: bool | None = None,
-    ) -> NDArray:
+        fold_size: int | None = None,
+        dtype: DTypeLike | None = None,
+    ) -> NDArray | None:
         """
         Calculate a fingerprint for the molecule.
 
         Examples:
             >>> mol = Molecule.from_smiles("CCO")
-            >>> mol.to_fp("morgan", radius=2, size=1024, fold_dim=8)
+            >>> mol.to_fp("morgan", radius=2, size=1024, fold_size=8)
             array([1, 1, 1, 0, 0, 0, 2, 1], dtype=uint64)
 
-            >>> mol.to_fp("morgan", radius=2, size=1024, n_folds=256)
-            array([1, 1, 3, 1], dtype=uint64)
+            >>> mol.to_fp("morgan", radius=2, size=1024, fold_size=8, dtype=bool)
+            array([ True,  True,  True, False, False, False,  True,  True])
         """
         # FIXME: bad return type
         fp_gen = _fp_generator(kind, radius, size)
         fp = fp_gen.GetFingerprintAsNumPy(self.rdkit)
-        fp = fold_vector(fp, dim=fold_dim, n_folds=n_folds, binary=binary)
-        return fp
+
+        fp = np.asarray(fp, dtype)
+        if fold_size is not None:
+            return fold(fp, dim=fold_size, dtype=dtype)
 
     def n_atoms(self, implicit=True) -> int:  # TODO: add heavy
         """
