@@ -28,7 +28,6 @@ loguru = "^0.7.2"
 jax = { version = "^0.4.20", extras = ["cpu"], optional = true }
 atpublic = "^4.0"
 datamol = "^0.12.2"
-ruff = "^0.1.8"
 
 [tool.poetry.extras]
 cpu = ["jax"]
@@ -48,6 +47,7 @@ pytest-cov = "^4.1.0"
 cloudpickle = "^3.0.0"
 ruff = "^0.1.8"
 pre-commit = "^3.6.0"
+pyarrow = "^15.0.0"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.5.3"
