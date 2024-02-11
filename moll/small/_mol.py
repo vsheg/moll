@@ -158,9 +158,16 @@ class Molecule:
 
         Examples:
             >>> mol = Molecule.from_smiles("CCO")
+
+            Generate a Morgan fingerprint:
+            >>> mol.to_fp("morgan", radius=2, size=8)
+            array([1, 1, 1, 0, 0, 0, 1, 1], dtype=uint8)
+
+            Reduce the size of the fingerprint by folding:
             >>> mol.to_fp("morgan", radius=2, size=1024, fold_size=8)
             array([1, 1, 1, 0, 0, 0, 2, 1], dtype=uint64)
 
+            Convert to a binary vector:
             >>> mol.to_fp("morgan", radius=2, size=1024, fold_size=8, dtype=bool)
             array([ True,  True,  True, False, False, False,  True,  True])
         """
@@ -171,6 +178,7 @@ class Molecule:
         fp = np.asarray(fp, dtype)
         if fold_size is not None:
             return fold(fp, dim=fold_size, dtype=dtype)
+        return fp
 
     def n_atoms(self, implicit=True) -> int:  # TODO: add heavy
         """
