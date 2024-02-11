@@ -3,7 +3,14 @@ Type aliases and protocols used throughout the package.
 """
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Literal, Protocol, TypeAlias, TypeVar, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    runtime_checkable,
+)
 
 from jax import Array
 from jax.typing import ArrayLike
@@ -25,6 +32,7 @@ SimilarityFnCallable: TypeAlias = Callable[[Array, Array], ArrayLike]
 
 PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
 PotentialFnCallable: TypeAlias = Callable[[float], ArrayLike]
+
 
 RDKitMol: TypeAlias = Chem.rdchem.Mol
 RDKitAtom: TypeAlias = Chem.rdchem.Atom
@@ -70,4 +78,7 @@ del (
     Array,
     ArrayLike,
     runtime_checkable,
+    TYPE_CHECKING,
+    Path,
+    Chem,
 )
