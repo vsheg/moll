@@ -6,7 +6,11 @@ from typing import TypeAlias
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import Array, lax
+from jax.typing import ArrayLike, DTypeLike
+from numpy.typing import DTypeLike as NPDTypeLike
+from numpy.typing import NDArray
 from public import public
 
 from ._decorators import listify
@@ -222,6 +226,7 @@ def dists_to_nearest_neighbor(points, dist_fn):
     return jnp.min(dists_, axis=0)
 
 
+@public
 @listify
 def group_files_by_size(
     files: list[Path], max_batches: int, *, sort_size=True, large_first=False
@@ -262,3 +267,77 @@ def group_files_by_size(
 
     if batch:
         yield batch
+
+
+@public
+def fold(
+    vec: NDArray,
+    dim: int,
+    *,
+    dtype: NPDTypeLike | None = None,
+) -> np.ndarray:
+    """
+    Reduce vector dimension by folding.
+
+    Examples:
+        Fold to a specific size:
+        >>> fold([1, 0, 1, 0, 0, 0], dim=3)
+        array([1, 0, 1])
+
+        Folding a binary vector returns a binary vector:
+        >>> fold([True, False, True, False, False, False], dim=2)
+        array([2, 0])
+
+        Specify `dtype` to change the type of the output:
+        >>> fold([1, 0, 1, 0, 0, 0], dim=2, dtype=bool)
+        array([ True, False])
+    """
+    vec = np.asarray(vec)
+    pad_width = dim - vec.size % dim
+    vec = (
+        np.pad(vec, (0, pad_width), mode="constant", constant_values=0)
+        .reshape(-1, dim)
+        .sum(axis=0)
+    )
+    if dtype is not None:
+        vec = vec.astype(dtype)
+    return vec
+
+
+@partial(
+    jax.jit,
+    static_argnames=["dim", "dtype"],
+    backend="cpu",
+)
+def fold_jax(
+    vec: ArrayLike,
+    dim: int,
+    *,
+    dtype: DTypeLike | None = None,
+) -> Array:
+    """
+    Reduce vector dimension by folding.
+
+    Examples:
+        Fold to a specific size:
+        >>> fold_jax([1, 0, 1, 0, 0, 0], dim=3)
+        Array([1, 0, 1], dtype=int32)
+
+        Folding a binary vector returns a binary vector:
+        >>> fold_jax([True, False, True, False, False, False], dim=2)
+        Array([2, 0], dtype=int32)
+
+        Specify `dtype` to change the type of the output:
+        >>> fold_jax([1, 0, 1, 0, 0, 0], dim=2, dtype=bool)
+        Array([ True, False], dtype=bool)
+    """
+    vec = jnp.asarray(vec)
+    pad_width = dim - vec.size % dim
+    vec = (
+        jnp.pad(vec, (0, pad_width), mode="constant", constant_values=0)
+        .reshape(-1, dim)
+        .sum(axis=0)
+    )
+    if dtype is not None:
+        vec = vec.astype(dtype)
+    return vec

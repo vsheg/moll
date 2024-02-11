@@ -9,7 +9,7 @@ import jax
 import jax.numpy as jnp
 from jax import Array, lax
 
-from moll.utils import dist_matrix, fill_diagonal, matrix_cross_sum
+from ..utils import dist_matrix, fill_diagonal, matrix_cross_sum
 
 
 @partial(jax.jit, static_argnames=["similarity_fn", "potential_fn"])

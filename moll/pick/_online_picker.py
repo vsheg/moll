@@ -13,21 +13,20 @@ from loguru import logger
 from numpy.typing import NDArray
 from public import public
 
-from moll.metrics import (
+from ..metrics import (
     euclidean,
     manhattan,
     mismatches,
     negative_cosine,
     one_minus_tanimoto,
 )
-from moll.typing import (
+from ..typing import (
     Indexable,
     PotentialFnCallable,
     PotentialFnLiteral,
     SimilarityFnCallable,
     SimilarityFnLiteral,
 )
-
 from ._online_add import update_points
 
 
