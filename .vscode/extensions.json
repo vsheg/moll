@@ -2,7 +2,6 @@
     "recommendations": [
         "ms-python.vscode-pylance",
         "ms-python.python",
-        "quarto.quarto",
         "charliermarsh.ruff"
     ]
 }
