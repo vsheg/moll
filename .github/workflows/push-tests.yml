@@ -22,5 +22,5 @@ jobs:
           python-version: '${{ vars.TARGET_PYTHON_VERSION }}'
           cache: poetry
       - run: poetry env use '${{ vars.TARGET_PYTHON_VERSION }}'
-      - run: poetry install -E cpu
+      - run: poetry install --with cpu
       - run: poetry run pytest
