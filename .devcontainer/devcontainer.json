@@ -1,0 +1,16 @@
+{
+    "name": "moll-cuda",
+    "dockerFile": "../Dockerfile.devcontainer",
+    "context": "../",
+    "remoteUser": "moll",
+    "runArgs": [
+        "--gpus=all"
+    ],
+    "customizations": {
+        "vscode": {},
+        "settings": {
+            "terminal.integrated.shell.linux": "/bin/bash",
+            "editor.tabSize": 4
+        }
+    }
+}

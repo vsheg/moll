@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "${{ vars.TARGET_PYTHON_VERSION }}"
           cache: poetry
-      - run: poetry install -E cpu
+      - run: poetry install --with cpu,dev
       - run: poetry build
       - uses: actions/upload-artifact@v3
         with:
