@@ -1,6 +1,6 @@
 {
     "name": "moll-cuda",
-    "dockerFile": "Dockerfile.cuda",
+    "dockerFile": "../Dockerfile.devcontainer",
     "context": "../",
     "remoteUser": "moll",
     "runArgs": [

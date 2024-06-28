@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/devcontainers/python:3.10 as base
+
+ARG PROJECT_NAME=moll
+ARG USER_NAME=$PROJECT_NAME
+ARG SHELL=/bin/bash
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN userdel -r vscode \
+    && groupadd --gid $USER_GID $USER_NAME \
+    && useradd --uid $USER_UID --gid $USER_GID --shell $SHELL --create-home $USER_NAME \
+    && echo $USER_NAME ALL=\(ALL\) NOPASSWD: ALL >> /etc/sudoers \
+    && pipx install poetry \
+    && apt-get install -y sudo
+
+USER $USER_NAME
