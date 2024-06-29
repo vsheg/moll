@@ -39,6 +39,14 @@ optional = true
 [tool.poetry.group.cuda.dependencies]
 jax = { version = "^0.4.30", extras = ["cuda12"] }
 
+[tool.poetry.group.metal]
+optional = true
+
+[tool.poetry.group.metal.dependencies]
+jax-metal = "^0.1.0"
+jax = "^0.4.26"
+jaxlib = "^0.4.26"
+
 [tool.poetry.group.dev]
 optional = true
 
