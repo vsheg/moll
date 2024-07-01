@@ -11,7 +11,7 @@ from sklearn import datasets
 from ...metrics import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from .._online_picker import (
-    OnlinePicker,
+    OnlineVectorPicker,
     PotentialFnLiteral,
     SimilarityFnLiteral,
 )
@@ -21,7 +21,7 @@ RANDOM_SEED = 42
 
 @pytest.fixture
 def picker_euclidean():
-    return OnlinePicker(capacity=5, similarity_fn=euclidean)
+    return OnlineVectorPicker(capacity=5, similarity_fn=euclidean)
 
 
 # Test that the picker API works as expected
@@ -72,11 +72,11 @@ def test_k_neighbors(k_neighbors, expected, text):
     if isinstance(expected, type) and issubclass(expected, Exception):
         with pytest.raises(expected, match=text):
             print(k_neighbors)
-            picker = OnlinePicker(
+            picker = OnlineVectorPicker(
                 capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
             )
     else:
-        picker = OnlinePicker(
+        picker = OnlineVectorPicker(
             capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
         )
         assert picker.k_neighbors == expected
@@ -92,7 +92,7 @@ def picker(request):
     """
     Return a picker with a different number of points.
     """
-    return OnlinePicker(
+    return OnlineVectorPicker(
         capacity=request.param,
         similarity_fn=euclidean,
         k_neighbors=request.param,
@@ -200,7 +200,7 @@ def test_update_many_random(picker, centers_and_points, n_batches):
         )
 
 
-def test_update_same_points(picker_euclidean: OnlinePicker):
+def test_update_same_points(picker_euclidean: OnlineVectorPicker):
     center1 = jnp.array([0, 0, 0])
     center2 = jnp.array([0, 10, 0])
     same_centers = [jnp.array([10, 10, 10]) for _ in range(10)]
@@ -241,7 +241,7 @@ def circles(factor=0.1, random_state=42, n_samples=20):
     return points, labels
 
 
-def test_labels_add(picker_euclidean: OnlinePicker, circles):
+def test_labels_add(picker_euclidean: OnlineVectorPicker, circles):
     points, labels = circles
 
     for point, label in zip(points, labels, strict=True):
@@ -254,7 +254,7 @@ def test_labels_add(picker_euclidean: OnlinePicker, circles):
     assert counts["small"] <= 1
 
 
-def test_manual_labels_update(picker_euclidean: OnlinePicker, circles):
+def test_manual_labels_update(picker_euclidean: OnlineVectorPicker, circles):
     points, labels = circles
 
     _n_accepted = picker_euclidean.update(points, labels=labels)
@@ -266,7 +266,7 @@ def test_manual_labels_update(picker_euclidean: OnlinePicker, circles):
     assert counts["small"] <= 1
 
 
-def test_auto_labels_update(picker_euclidean: OnlinePicker, circles):
+def test_auto_labels_update(picker_euclidean: OnlineVectorPicker, circles):
     points, _labels = circles
 
     large_circle_idxs = {idx for tag, idx in _labels if tag == "large"}
@@ -288,7 +288,7 @@ def test_auto_labels_update(picker_euclidean: OnlinePicker, circles):
     "init_batch_size",
     [1, 2, 3, 4, 5],
 )
-def test_fast_init(picker_euclidean: OnlinePicker, circles, init_batch_size):
+def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_size):
     points, labels = circles
 
     batch_init = points[:init_batch_size]
@@ -317,7 +317,7 @@ similarity_fns: tuple = get_args(SimilarityFnLiteral) + (
 @pytest.fixture(params=similarity_fns)
 def picker_similarity_fn(request):
     similarity_fn = request.param
-    return OnlinePicker(
+    return OnlineVectorPicker(
         capacity=5,
         similarity_fn=similarity_fn,
         potential_fn="exp",  # exp potential is used to treat negative similarities
@@ -362,7 +362,7 @@ potential_fns: tuple = get_args(PotentialFnLiteral) + (
 @pytest.fixture(params=potential_fns)
 def picker_potential_fn(request):
     potential_fn = request.param
-    return OnlinePicker(capacity=5, potential_fn=potential_fn)
+    return OnlineVectorPicker(capacity=5, potential_fn=potential_fn)
 
 
 @pytest.fixture
