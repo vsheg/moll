@@ -31,7 +31,7 @@ from ._online_add import update_points
 
 
 @public
-class OnlineDiversityPicker:
+class OnlinePicker:
     """
     Greedy algorithm for picking a diverse subset of points in an online fashion.
     """
