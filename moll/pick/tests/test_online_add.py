@@ -3,10 +3,10 @@ import pytest
 
 from ...metrics import euclidean
 from .._online_add import (
-    _add_point,
+    _add_vector,
     _finalize_updates,
-    _needless_point_idx,
-    update_points,
+    _needless_vector_idx,
+    update_vectors,
 )
 
 # Test finalize_updates
@@ -33,7 +33,7 @@ def test_finalize_updates(array, expected):
     assert jnp.all(output_array == expected)
 
 
-# Test needless point search
+# Test needless vector search
 
 
 @pytest.mark.parametrize(
@@ -52,14 +52,14 @@ def test_finalize_updates(array, expected):
         lambda x, y: euclidean(x, y) - 10,  # negative distance is ok
     ],
 )
-def test_find_needless_point(array, expected, dist_fn):
+def test_find_needless_vector(array, expected, dist_fn):
     array = jnp.array(array)
     # exp potential is used to treat negative distances
-    idx = _needless_point_idx(array, dist_fn, lambda d: jnp.exp(-d))
+    idx = _needless_vector_idx(array, dist_fn, lambda d: jnp.exp(-d))
     assert idx == expected
 
 
-# Test add points
+# Test add vectors
 
 
 @pytest.fixture
@@ -84,16 +84,16 @@ def X():
         lambda x, y: euclidean(x, y) - 10,
     ],
 )
-def test_add_point(X, similarity_fn):
+def test_add_vector(X, similarity_fn):
     x = jnp.array([4.3, 4.3])
     X_copy = X.copy()
-    X_updated, updated_idx = _add_point(
+    X_updated, updated_idx = _add_vector(
         x=x,
         X=X,
         similarity_fn=similarity_fn,
         potential_fn=lambda d: jnp.exp(-d),
         k_neighbors=5,
-        n_valid_points=5,
+        n_valid_vectors=5,
         threshold=-jnp.inf,
     )
     assert updated_idx >= 0
@@ -115,12 +115,12 @@ def test_add_point(X, similarity_fn):
         ),
     ],
 )
-def test_update_points(X, xs, acc_mask):
+def test_update_vectors(X, xs, acc_mask):
     xs = jnp.array(xs)
     acc_mask = jnp.array(acc_mask)
     X_copy = X.copy()
 
-    X_updated, updated_idxs, acceptance_mask, n_appended, n_updated = update_points(
+    X_updated, updated_idxs, acceptance_mask, n_appended, n_updated = update_vectors(
         X=X,
         xs=xs,
         similarity_fn=euclidean,

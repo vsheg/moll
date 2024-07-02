@@ -1,5 +1,5 @@
 """
-Online algorithm for picking a subset of points based on their distance.
+Online algorithm for picking a subset of vectors based on their similarity.
 """
 
 
@@ -27,13 +27,13 @@ from ..typing import (
     SimilarityFnCallable,
     SimilarityFnLiteral,
 )
-from ._online_add import update_points
+from ._online_add import update_vectors
 
 
 @public
-class OnlineDiversityPicker:
+class OnlineVectorPicker:
     """
-    Greedy algorithm for picking a diverse subset of points in an online fashion.
+    Greedy algorithm for picking a subset of vectors in an online fashion.
     """
 
     def __init__(
@@ -133,12 +133,12 @@ class OnlineDiversityPicker:
                 return lambda d: jnp.where(d > 0, -jnp.log(p * d), jnp.inf)
         return potential_fn
 
-    def _init_data(self, point: Array, label=None):
-        """Initialize the picker with the first point."""
-        dim = point.shape[0]
-        self.dtype = point.dtype
+    def _init_data(self, vector: Array, label=None):
+        """Initialize the picker with the first vector."""
+        dim = vector.shape[0]
+        self.dtype = vector.dtype
         self._data = jnp.zeros((self.capacity, dim), dtype=self.dtype)
-        self._data = self._data.at[0].set(point)
+        self._data = self._data.at[0].set(vector)
         self._labels[0] = label
 
         self._n_valid += 1
@@ -187,21 +187,21 @@ class OnlineDiversityPicker:
         return jnp.array(data, dtype=dtype)
 
     def update(
-        self, points: Iterable, labels: Indexable[Hashable] | None = None
+        self, vectors: Iterable, labels: Indexable[Hashable] | None = None
     ) -> int:
         """
-        Add a batch of points to the picker.
+        Add a batch of vectors to the picker.
         """
         # Convert to JAX array if needed
-        points = self._convert_data(points, dtype=self.dtype)
+        vectors = self._convert_data(vectors, dtype=self.dtype)
 
-        batch_size = len(points)
+        batch_size = len(vectors)
         n_accepted = 0
 
         # Check labels
 
         if labels is None:
-            labels = np.arange(self.n_seen, self.n_seen + len(points))
+            labels = np.arange(self.n_seen, self.n_seen + len(vectors))
         elif len(labels) != batch_size:
             raise ValueError(
                 f"Expected number of labels={len(labels)} to match batch_size={batch_size}"
@@ -209,28 +209,28 @@ class OnlineDiversityPicker:
         else:
             labels = self._convert_labels(labels)
 
-        # Init internal data storage with first point if picker is empty
+        # Init internal data storage with a first vector if picker is empty
 
         if was_empty := self.is_empty():
-            self._init_data(points[0], labels[0])
+            self._init_data(vectors[0], labels[0])
             n_accepted += 1
 
-            # Continue with the rest of the points
-            points = points[1:]
+            # Continue with the rest of the vectors
+            vectors = vectors[1:]
             labels = labels[1:]
 
-        # Process remaining points
+        # Process remaining vectors
 
-        if points.shape[0] > 0:
+        if vectors.shape[0] > 0:
             (
                 data_updated,
                 updated_idxs,
                 acceptance_mask,
                 n_appended,
                 n_updated,
-            ) = update_points(
+            ) = update_vectors(
                 X=self._data,
-                xs=points,
+                xs=vectors,
                 similarity_fn=self.similarity_fn,
                 potential_fn=self.potential_fn,
                 k_neighbors=self.k_neighbors,
@@ -238,7 +238,7 @@ class OnlineDiversityPicker:
                 n_valid=self._n_valid,
             )
 
-            # Update points data
+            # Update vectors data
             self._data = data_updated
 
             # Update counters
@@ -254,33 +254,33 @@ class OnlineDiversityPicker:
 
         return n_accepted
 
-    def add(self, point: Array, label: Hashable | None = None) -> bool:
+    def add(self, vector: Array, label: Hashable | None = None) -> bool:
         """
-        Add a point to the picker.
+        Add a vector to the picker.
         """
         n_accepted = self.update(
-            points=[point],
+            vectors=[vector],
             labels=[label] if label else None,  # type: ignore
         )
         is_accepted = n_accepted > 0
         return is_accepted
 
-    def warm(self, points: Array, labels: Indexable[Hashable] | None = None):
+    def warm(self, vectors: Array, labels: Indexable[Hashable] | None = None):
         """
-        Initialize the picker with a set of points.
+        Initialize the picker with a set of vectors.
         """
         assert self.is_empty()
 
-        batch_size = points.shape[0]
+        batch_size = vectors.shape[0]
         assert batch_size <= self.capacity
 
         if labels:
             assert len(labels) == batch_size
         else:
-            labels = np.arange(len(points))
+            labels = np.arange(len(vectors))
 
-        self._init_data(points[0], labels[0])
-        self._data = self._data.at[1:batch_size].set(points[1:])  # type: ignore
+        self._init_data(vectors[0], labels[0])
+        self._data = self._data.at[1:batch_size].set(vectors[1:])  # type: ignore
         self._labels[1:batch_size] = labels[1:]
 
         self.n_accepted += batch_size - 1
@@ -290,14 +290,14 @@ class OnlineDiversityPicker:
     @property
     def n_rejected(self) -> int:
         """
-        Return the number of rejected points.
+        Return the number of rejected vectors.
         """
         return self.n_seen - self.n_accepted
 
     @property
     def size(self) -> int:
         """
-        Return the number of points in the picker.
+        Return the number of vectors in the picker.
         """
         assert self._n_valid <= self.capacity
         return self._n_valid
@@ -327,9 +327,9 @@ class OnlineDiversityPicker:
         return self._labels[: self._n_valid].tolist()
 
     @property
-    def points(self) -> Array | None:
+    def vectors(self) -> Array | None:
         """
-        Return the currently picked points.
+        Return the currently picked vectors.
         """
         if self._data is None:
             return None
@@ -338,7 +338,7 @@ class OnlineDiversityPicker:
     @property
     def dim(self) -> int | None:
         """
-        Return the dimension of the points.
+        Return the dimension of the vectors.
         """
         if (data := self._data) is not None:
             return data.shape[1]

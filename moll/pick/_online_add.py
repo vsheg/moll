@@ -1,5 +1,5 @@
 """
-Online algorithm for adding points to a fixed-size set of points.
+Online algorithm for adding vectors to a fixed-size set of vectors.
 """
 
 from collections.abc import Callable
@@ -13,27 +13,27 @@ from ..utils import dist_matrix, fill_diagonal, matrix_cross_sum
 
 
 @partial(jax.jit, static_argnames=["similarity_fn", "potential_fn"])
-def _needless_point_idx(
+def _needless_vector_idx(
     vicinity: Array, similarity_fn: Callable, potential_fn: Callable
 ) -> int:
     """
-    Find a point in `X` removing which would decrease the total potential the most.
+    Find a vector in `X` removing which would decrease the total potential the most.
     """
     # Calculate matrix of pairwise distances and corresponding matrix of potentials
     dist_mat = dist_matrix(vicinity, similarity_fn)
     potent_mat = jax.vmap(potential_fn)(dist_mat)
 
-    # Inherent potential of a point is 0, it means that the point by itself does not
-    # contribute to the total potential. In the future, the penalty for the point itself
+    # Inherent potential of a vector is 0, it means that the vector by itself does not
+    # contribute to the total potential. In the future, the penalty for the vector itself
     # can be added
     potent_mat = fill_diagonal(potent_mat, 0)
 
-    # Compute potential decrease when each point is deleted from the set
+    # Compute potential decrease when each vector is deleted from the set
     deltas = jax.vmap(lambda i: matrix_cross_sum(potent_mat, i, i, row_only=True))(
         jnp.arange(vicinity.shape[0])
     )
 
-    # Find point that decreases total potential the most (deltas are negative)
+    # Find vector that decreases total potential the most (deltas are negative)
     idx = deltas.argmax()
     return idx
 
@@ -63,26 +63,26 @@ def _k_neighbors(similarities: Array, k_neighbors: int):
     donate_argnames=["x", "X"],
     inline=True,
 )
-def _add_point(
+def _add_vector(
     x: Array,
     X: Array,
     similarity_fn: Callable,
     potential_fn: Callable,
     k_neighbors: int,
-    n_valid_points: int,
+    n_valid_vectors: int,
     threshold: float,
 ) -> tuple[Array, bool, int]:
     """
-    Adds a point `x` to a fixed-size set of points `X`.
+    Adds a vector `x` to a fixed-size set of vectors `X`.
     """
 
     def below_threshold_or_infinite_potential(X, _):
         return X, -1
 
     def above_threshold_and_not_full(X, _):
-        updated_point_idx = n_valid_points
-        X = X.at[updated_point_idx].set(x)
-        return X, updated_point_idx
+        updated_vector_idx = n_valid_vectors
+        X = X.at[updated_vector_idx].set(x)
+        return X, updated_vector_idx
 
     def above_threshold_and_full(X, sims):
         # TODO: test approx_min_k vs argpartition
@@ -92,27 +92,27 @@ def _add_point(
         # Define a neighborhood of `x`
         vicinity = lax.concatenate((jnp.array([x]), X[k_neighbors_idxs]), 0)
 
-        # Point in the vicinity removing which decreases the total potential the most:
-        needless_point_vicinity_idx = _needless_point_idx(
+        # Vector in the vicinity removing which decreases the total potential the most:
+        needless_vector_vicinity_idx = _needless_vector_idx(
             vicinity, similarity_fn, potential_fn
         )
 
-        # If the needless point is not `x`, replace it with `x`
-        is_accepted = needless_point_vicinity_idx > 0
-        updated_point_idx = k_neighbors_idxs[needless_point_vicinity_idx - 1]
+        # If the needless vector is not `x`, replace it with `x`
+        is_accepted = needless_vector_vicinity_idx > 0
+        updated_vector_idx = k_neighbors_idxs[needless_vector_vicinity_idx - 1]
 
-        X, updated_point_idx = lax.cond(
+        X, updated_vector_idx = lax.cond(
             is_accepted,
-            lambda X, idx: (X.at[updated_point_idx].set(x), idx),
+            lambda X, idx: (X.at[updated_vector_idx].set(x), idx),
             lambda X, _: (X, -1),
-            *(X, updated_point_idx),
+            *(X, updated_vector_idx),
         )
 
-        return X, updated_point_idx
+        return X, updated_vector_idx
 
-    is_full = X.shape[0] == n_valid_points
+    is_full = X.shape[0] == n_valid_vectors
 
-    sims = _similarities(x, X, similarity_fn, n_valid_points)
+    sims = _similarities(x, X, similarity_fn, n_valid_vectors)
     min_dist = sims.min()
     is_above_threshold = min_dist > threshold
 
@@ -124,11 +124,11 @@ def _add_point(
 
     branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
 
-    # If the potential is infinite, the point is always rejected
+    # If the potential is infinite, the vector is always rejected
     is_potential_infinite = jnp.isinf(potential_fn(min_dist))
     branch_idx *= ~is_potential_infinite
 
-    result = X, updated_point_idx = lax.switch(branch_idx, branches, X, sims)
+    result = X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
     return result
 
 
@@ -163,7 +163,7 @@ def _finalize_updates(changes: Array) -> Array:
     static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
     donate_argnames=["X", "xs"],
 )
-def update_points(
+def update_vectors(
     *,
     X: Array,
     xs: Array,
@@ -182,14 +182,14 @@ def update_points(
     def body_fun(carry, x):
         X, n_valid_new = carry
 
-        X, updated_idx = _add_point(
+        X, updated_idx = _add_vector(
             x,
             X,
             similarity_fn=similarity_fn,
             potential_fn=potential_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
-            n_valid_points=n_valid_new,
+            n_valid_vectors=n_valid_new,
         )
 
         n_valid_new = lax.cond(
@@ -203,7 +203,7 @@ def update_points(
 
     (X, n_valid_new), updated_idxs = lax.scan(body_fun, (X, n_valid), xs)
 
-    # Some points might have been accepted and then replaced by another point
+    # Some vectors might have been accepted and then replaced by another vector
     updated_idxs = _finalize_updates(updated_idxs)
     acceptance_mask = updated_idxs >= 0
 
