@@ -11,7 +11,7 @@ from sklearn import datasets
 from ...metrics import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from .._online_picker import (
-    OnlineDiversityPicker,
+    OnlineVectorPicker,
     PotentialFnLiteral,
     SimilarityFnLiteral,
 )
@@ -21,7 +21,7 @@ RANDOM_SEED = 42
 
 @pytest.fixture
 def picker_euclidean():
-    return OnlineDiversityPicker(capacity=5, similarity_fn=euclidean)
+    return OnlineVectorPicker(capacity=5, similarity_fn=euclidean)
 
 
 # Test that the picker API works as expected
@@ -37,9 +37,9 @@ def test_add(picker_euclidean):
     picker_euclidean.add(jnp.array(p))
     assert picker_euclidean.n_seen == 1
     assert picker_euclidean.n_accepted == 1
-    assert picker_euclidean.points is not None
-    assert picker_euclidean.points.shape == (1, 3)
-    assert (picker_euclidean.points[0] == p).all()
+    assert picker_euclidean.vectors is not None
+    assert picker_euclidean.vectors.shape == (1, 3)
+    assert (picker_euclidean.vectors[0] == p).all()
 
 
 def test_add_many(picker_euclidean):
@@ -51,9 +51,9 @@ def test_add_many(picker_euclidean):
     assert picker_euclidean.is_empty() is False
     assert picker_euclidean.is_full() is False
     assert picker_euclidean.n_accepted == 1
-    assert picker_euclidean.points is not None
-    assert picker_euclidean.points.shape == (1, 3)
-    assert (picker_euclidean.points[0] == p).all()
+    assert picker_euclidean.vectors is not None
+    assert picker_euclidean.vectors.shape == (1, 3)
+    assert (picker_euclidean.vectors[0] == p).all()
 
 
 @pytest.mark.parametrize(
@@ -72,17 +72,17 @@ def test_k_neighbors(k_neighbors, expected, text):
     if isinstance(expected, type) and issubclass(expected, Exception):
         with pytest.raises(expected, match=text):
             print(k_neighbors)
-            picker = OnlineDiversityPicker(
+            picker = OnlineVectorPicker(
                 capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
             )
     else:
-        picker = OnlineDiversityPicker(
+        picker = OnlineVectorPicker(
             capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
         )
         assert picker.k_neighbors == expected
 
 
-# Test that the picker returns the most distant points
+# Test that the picker returns the most distant vectors
 
 
 @pytest.fixture(
@@ -90,9 +90,9 @@ def test_k_neighbors(k_neighbors, expected, text):
 )
 def picker(request):
     """
-    Return a picker with a different number of points.
+    Return a picker with a different number of vectors.
     """
-    return OnlineDiversityPicker(
+    return OnlineVectorPicker(
         capacity=request.param,
         similarity_fn=euclidean,
         k_neighbors=request.param,
@@ -123,9 +123,9 @@ def centers(picker, request, seed=RANDOM_SEED, n_ticks=5):
 @pytest.fixture(
     params=[[3, 3], [1, 100]],  # smallest and biggest cluster sizes
 )
-def centers_and_points(centers, request, seed=RANDOM_SEED):
+def centers_and_vectors(centers, request, seed=RANDOM_SEED):
     """
-    Generate random points around cluster centers.
+    Generate random vectors around cluster centers.
     """
     # sizes of smallest and biggest clusters
     smallest, biggest = request.param
@@ -142,40 +142,40 @@ def n_batches(request):
     return request.param
 
 
-def test_add_many_random(picker, centers_and_points):
-    centers, points = centers_and_points
+def test_add_many_random(picker, centers_and_vectors):
+    centers, vectors = centers_and_vectors
 
     assert picker.is_empty()
 
     # If labels are not provided, generate a placeholder for zip
 
-    for point in points:
-        picker.add(point)
+    for vector in vectors:
+        picker.add(vector)
 
-    selected_points = picker.points
+    selected_vectors = picker.vectors
 
-    # Check number of accepted points
-    assert picker.n_seen == len(points)
+    # Check number of accepted vectors
+    assert picker.n_seen == len(vectors)
     assert picker.is_empty() is False
     assert picker.is_full() is True
     assert picker.n_accepted >= len(centers)
-    assert picker.n_accepted <= len(points)
+    assert picker.n_accepted <= len(vectors)
     assert picker.size == len(centers)
     assert picker.n_rejected == picker.n_seen - picker.n_accepted
 
-    # Check if at least one point from each cluster is selected
+    # Check if at least one vector from each cluster is selected
     for center in centers:
-        assert jax.vmap(jnp.linalg.norm)(selected_points - center).min() <= jnp.sqrt(
+        assert jax.vmap(jnp.linalg.norm)(selected_vectors - center).min() <= jnp.sqrt(
             picker.dim
         )
 
 
-def test_update_many_random(picker, centers_and_points, n_batches):
-    centers, points = centers_and_points
+def test_update_many_random(picker, centers_and_vectors, n_batches):
+    centers, vectors = centers_and_vectors
 
     assert picker.is_empty() is True
 
-    batches = jnp.array_split(points, n_batches)
+    batches = jnp.array_split(vectors, n_batches)
 
     n_accepted_total = 0
 
@@ -185,44 +185,44 @@ def test_update_many_random(picker, centers_and_points, n_batches):
         assert n_accepted <= picker.capacity
         n_accepted_total += n_accepted
 
-    selected_points = picker.points
+    selected_vectors = picker.vectors
 
-    # Check if at least one point from each cluster is in the selected points
+    # Check if at least one vector from each cluster is in the selected vectors
     assert picker.n_accepted >= len(centers)
     assert picker.n_accepted == n_accepted_total
-    assert picker.n_seen == len(points)
+    assert picker.n_seen == len(vectors)
     assert picker.n_rejected == picker.n_seen - picker.n_accepted
 
-    # Check if at least one point from each cluster is selected
+    # Check if at least one vector from each cluster is selected
     for center in centers:
-        assert jax.vmap(jnp.linalg.norm)(selected_points - center).min() <= jnp.sqrt(
+        assert jax.vmap(jnp.linalg.norm)(selected_vectors - center).min() <= jnp.sqrt(
             picker.dim
         )
 
 
-def test_update_same_points(picker_euclidean: OnlineDiversityPicker):
+def test_update_same_vectors(picker_euclidean: OnlineVectorPicker):
     center1 = jnp.array([0, 0, 0])
     center2 = jnp.array([0, 10, 0])
     same_centers = [jnp.array([10, 10, 10]) for _ in range(10)]
 
-    points = [center1, center2] + same_centers
-    shuffle(points)
+    vectors = [center1, center2] + same_centers
+    shuffle(vectors)
 
     n_accepted = 0
 
-    for point in points:
-        n_accepted += picker_euclidean.add(point)
+    for vector in vectors:
+        n_accepted += picker_euclidean.add(vector)
 
-    _selected_points = picker_euclidean.points
+    _selected_vectors = picker_euclidean.vectors
 
-    # Check number of accepted points
+    # Check number of accepted vectors
     assert picker_euclidean.n_seen == 12
     assert picker_euclidean.n_accepted == n_accepted
     assert picker_euclidean.n_accepted == 3
     assert picker_euclidean.n_rejected == 9
 
-    assert picker_euclidean.points is not None
-    assert picker_euclidean.points.shape == (3, 3)
+    assert picker_euclidean.vectors is not None
+    assert picker_euclidean.vectors.shape == (3, 3)
 
     assert picker_euclidean.labels is not None
     assert len(picker_euclidean.labels) == n_accepted
@@ -231,33 +231,21 @@ def test_update_same_points(picker_euclidean: OnlineDiversityPicker):
 @pytest.fixture
 def circles(factor=0.1, random_state=42, n_samples=20):
     """
-    Generate 2 circles: a small one and a large one. Points in the small circle are not
+    Generate 2 circles: a small one and a large one. Vectors in the small circle are not
     favorable because of repulsion.
     """
-    points, tags = datasets.make_circles(
+    vectors, tags = datasets.make_circles(
         factor=factor, random_state=random_state, n_samples=n_samples
     )
     labels = [("small" if tag else "large", i) for i, tag in enumerate(tags)]
-    return points, labels
+    return vectors, labels
 
 
-def test_labels_add(picker_euclidean: OnlineDiversityPicker, circles):
-    points, labels = circles
+def test_labels_add(picker_euclidean: OnlineVectorPicker, circles):
+    vectors, labels = circles
 
-    for point, label in zip(points, labels, strict=True):
-        picker_euclidean.add(point, label=label)
-
-    assert picker_euclidean.labels
-    counts = Counter(circle for circle, idx in picker_euclidean.labels)
-
-    assert counts["large"] >= 4
-    assert counts["small"] <= 1
-
-
-def test_manual_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
-    points, labels = circles
-
-    _n_accepted = picker_euclidean.update(points, labels=labels)
+    for vector, label in zip(vectors, labels, strict=True):
+        picker_euclidean.add(vector, label=label)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -266,13 +254,25 @@ def test_manual_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
     assert counts["small"] <= 1
 
 
-def test_auto_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
-    points, _labels = circles
+def test_manual_labels_update(picker_euclidean: OnlineVectorPicker, circles):
+    vectors, labels = circles
+
+    _n_accepted = picker_euclidean.update(vectors, labels=labels)
+
+    assert picker_euclidean.labels
+    counts = Counter(circle for circle, idx in picker_euclidean.labels)
+
+    assert counts["large"] >= 4
+    assert counts["small"] <= 1
+
+
+def test_auto_labels_update(picker_euclidean: OnlineVectorPicker, circles):
+    vectors, _labels = circles
 
     large_circle_idxs = {idx for tag, idx in _labels if tag == "large"}
     small_circle_idxs = {idx for tag, idx in _labels if tag == "small"}
 
-    _n_accepted = picker_euclidean.update(points)
+    _n_accepted = picker_euclidean.update(vectors)
 
     assert picker_euclidean.labels
     labels_generated = set(picker_euclidean.labels)
@@ -288,11 +288,11 @@ def test_auto_labels_update(picker_euclidean: OnlineDiversityPicker, circles):
     "init_batch_size",
     [1, 2, 3, 4, 5],
 )
-def test_fast_init(picker_euclidean: OnlineDiversityPicker, circles, init_batch_size):
-    points, labels = circles
+def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_size):
+    vectors, labels = circles
 
-    batch_init = points[:init_batch_size]
-    batch = points[init_batch_size:]
+    batch_init = vectors[:init_batch_size]
+    batch = vectors[init_batch_size:]
     labels_init = labels[:init_batch_size]
     labels = labels[init_batch_size:]
 
@@ -317,7 +317,7 @@ similarity_fns: tuple = get_args(SimilarityFnLiteral) + (
 @pytest.fixture(params=similarity_fns)
 def picker_similarity_fn(request):
     similarity_fn = request.param
-    return OnlineDiversityPicker(
+    return OnlineVectorPicker(
         capacity=5,
         similarity_fn=similarity_fn,
         potential_fn="exp",  # exp potential is used to treat negative similarities
@@ -325,10 +325,10 @@ def picker_similarity_fn(request):
 
 
 @pytest.fixture
-def integer_vectors(n_points=1_000, dim=10, seed: int = RANDOM_SEED):
+def integer_vectors(n_vectors=1_000, dim=10, seed: int = RANDOM_SEED):
     return jax.random.randint(
         jax.random.PRNGKey(seed),
-        shape=(n_points, dim),
+        shape=(n_vectors, dim),
         minval=-2,
         maxval=2,
     )
@@ -342,7 +342,7 @@ def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
 
     min_dist_orig = dists_to_nearest_neighbor(integer_vectors, euclidean).min()
     min_dist_new = dists_to_nearest_neighbor(
-        picker_similarity_fn.points, euclidean
+        picker_similarity_fn.vectors, euclidean
     ).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
@@ -362,12 +362,12 @@ potential_fns: tuple = get_args(PotentialFnLiteral) + (
 @pytest.fixture(params=potential_fns)
 def picker_potential_fn(request):
     potential_fn = request.param
-    return OnlineDiversityPicker(capacity=5, potential_fn=potential_fn)
+    return OnlineVectorPicker(capacity=5, potential_fn=potential_fn)
 
 
 @pytest.fixture
-def uniform_rectangle(n_points=1_000, dim=2, seed: int = RANDOM_SEED):
-    return jax.random.uniform(jax.random.PRNGKey(RANDOM_SEED), (n_points, dim))
+def uniform_rectangle(n_vectors=1_000, dim=2, seed: int = RANDOM_SEED):
+    return jax.random.uniform(jax.random.PRNGKey(RANDOM_SEED), (n_vectors, dim))
 
 
 def test_custom_potential_fn(picker_potential_fn, uniform_rectangle):
@@ -376,7 +376,7 @@ def test_custom_potential_fn(picker_potential_fn, uniform_rectangle):
 
     min_dist_orig = dists_to_nearest_neighbor(uniform_rectangle, euclidean).min()
     min_dist_new = dists_to_nearest_neighbor(
-        picker_potential_fn.points, euclidean
+        picker_potential_fn.vectors, euclidean
     ).min()
 
     # Check that the min pairwise distance is increased by at least a factor:

@@ -56,17 +56,17 @@ def cap_vector(vector: Array, max_length: float):
 
 
 @public
-def points_around(
+def vectors_around(
     center: Array,
-    n_points: int,
+    n_vectors: int,
     std: float = 1,
     cap_radius: float | None = None,
     seed: Seed = None,
 ):
-    """Generate points around a center."""
+    """Generate vectors around a central vector."""
     key = create_key(seed)
     dim = len(center)
-    offsets = jax.random.normal(key, shape=(n_points, dim)) * std
+    offsets = jax.random.normal(key, shape=(n_vectors, dim)) * std
     if cap_radius is not None:
         offsets = jax.vmap(cap_vector, in_axes=(0, None))(offsets, cap_radius)
     return center + offsets
@@ -100,7 +100,7 @@ def globs(
     cap_radius: float | None = None,
     shuffle=True,
 ):
-    """Generate points around centers."""
+    """Generate vectors around centers."""
     if isinstance(sizes, int):
         sizes = (sizes,) * len(centers)
 
@@ -111,20 +111,20 @@ def globs(
 
     n_centers = len(centers)
     keys = jax.random.split(key, n_centers)
-    points = []
+    vectors = []
 
     for center, size, std, key in zip(centers, sizes, stds, keys, strict=True):
-        ps = points_around(
-            center, n_points=size, std=std, cap_radius=cap_radius, seed=key
+        ps = vectors_around(
+            center, n_vectors=size, std=std, cap_radius=cap_radius, seed=key
         )
-        points.append(ps)
+        vectors.append(ps)
 
-    points = jnp.concatenate(points, axis=0)
+    vectors = jnp.concatenate(vectors, axis=0)
 
     if shuffle:
         subkey, subkey = jax.random.split(key)
-        points = jax.random.permutation(subkey, points)
-    return points
+        vectors = jax.random.permutation(subkey, vectors)
+    return vectors
 
 
 @public
@@ -136,7 +136,7 @@ def random_grid_points(
     seed: Seed = None,
 ):
     """
-    Generate random grid points.
+    Generate random points lying on a grid.
     """
     ticks = spacing * jnp.arange(n_ticks) - n_ticks / 2
     grid = jnp.stack(jnp.meshgrid(*[ticks] * dim), axis=-1).reshape(-1, dim)
@@ -153,10 +153,10 @@ def partition(data: list, *, n_partitions: int):
     Partition the data into `n_partitions` partitions.
     """
 
-    n_points = len(data)
-    partition_size = n_points // n_partitions + 1
+    n_items = len(data)
+    partition_size = n_items // n_partitions + 1
     partitions = [
-        data[i : i + partition_size] for i in range(0, n_points, partition_size)
+        data[i : i + partition_size] for i in range(0, n_items, partition_size)
     ]
     return partitions
 
@@ -170,26 +170,26 @@ def fill_diagonal(array: Array, val: float | int):
 
 @public
 @partial(jax.jit, static_argnames=["dist_fn", "condensed"])
-def dist_matrix(points, dist_fn, condensed=False):
+def dist_matrix(vectors, dist_fn, condensed=False):
     """
-    Compute pairwise distances between points.
+    Compute pairwise distances between vectors.
 
     Examples:
-        >>> points = jnp.array([[0, 0], [1, 0]])
+        >>> vectors = jnp.array([[0, 0], [1, 0]])
         >>> dist_fn = lambda x, y: jnp.linalg.norm(x - y)
 
-        >>> dist_matrix(points, dist_fn).tolist()
+        >>> dist_matrix(vectors, dist_fn).tolist()
         [[0.0, 1.0], [1.0, 0.0]]
 
-        >>> dist_matrix(points, dist_fn, condensed=True).tolist()
+        >>> dist_matrix(vectors, dist_fn, condensed=True).tolist()
         [1.0]
     """
     dists = jax.vmap(jax.vmap(dist_fn, in_axes=(None, 0)), in_axes=(0, None))(
-        points, points
+        vectors, vectors
     )
 
     if condensed:
-        size = points.shape[0]
+        size = vectors.shape[0]
         indices = jnp.triu_indices(size, k=1)
         dists = dists[indices]
 
@@ -219,9 +219,9 @@ def matrix_cross_sum(X: Array, i: int, j: int, row_only=False, crossover=True):
 
 @public
 @partial(jax.jit, static_argnames="dist_fn")
-def dists_to_nearest_neighbor(points, dist_fn):
-    """Compute pairwise distances between points."""
-    dists_ = dist_matrix(points, dist_fn)
+def dists_to_nearest_neighbor(vectors, dist_fn):
+    """Compute pairwise distances between vectors."""
+    dists_ = dist_matrix(vectors, dist_fn)
     dists_ = fill_diagonal(dists_, jnp.inf)
     return jnp.min(dists_, axis=0)
 
