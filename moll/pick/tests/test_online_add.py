@@ -55,7 +55,9 @@ def test_finalize_updates(array, expected):
 def test_find_needless_vector(array, expected, dist_fn):
     array = jnp.array(array)
     # exp potential is used to treat negative distances
-    idx = _needless_vector_idx(array, dist_fn, lambda d: jnp.exp(-d))
+    idx = _needless_vector_idx(
+        array, dist_fn, sim_fn=lambda d: d, potential_fn=lambda s: jnp.exp(-s)
+    )
     assert idx == expected
 
 
@@ -77,21 +79,22 @@ def X():
 
 
 @pytest.mark.parametrize(
-    "similarity_fn",
+    "dist_fn",
     [
         euclidean,
         lambda x, y: euclidean(x, y) + 10,
         lambda x, y: euclidean(x, y) - 10,
     ],
 )
-def test_add_vector(X, similarity_fn):
+def test_add_vector(X, dist_fn):
     x = jnp.array([4.3, 4.3])
     X_copy = X.copy()
     X_updated, updated_idx = _add_vector(
         x=x,
         X=X,
-        similarity_fn=similarity_fn,
-        potential_fn=lambda d: jnp.exp(-d),
+        dist_fn=dist_fn,
+        sim_fn=lambda d: d,
+        potential_fn=lambda s: jnp.exp(-s),
         k_neighbors=5,
         n_valid_vectors=5,
         threshold=-jnp.inf,
@@ -123,8 +126,9 @@ def test_update_vectors(X, xs, acc_mask):
     X_updated, updated_idxs, acceptance_mask, n_appended, n_updated = update_vectors(
         X=X,
         xs=xs,
-        similarity_fn=euclidean,
-        potential_fn=lambda d: d**-1,
+        dist_fn=euclidean,
+        sim_fn=lambda d: d,
+        potential_fn=lambda s: s**-1,
         k_neighbors=5,
         n_valid=5,
         threshold=0.0,
