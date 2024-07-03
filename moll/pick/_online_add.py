@@ -12,16 +12,20 @@ from jax import Array, lax
 from ..utils import dist_matrix, fill_diagonal, matrix_cross_sum
 
 
-@partial(jax.jit, static_argnames=["similarity_fn", "potential_fn"])
+@partial(jax.jit, static_argnames=["dist_fn", "sim_fn", "potential_fn"])
 def _needless_vector_idx(
-    vicinity: Array, similarity_fn: Callable, potential_fn: Callable
+    vicinity: Array,
+    dist_fn: Callable[[Array, Array], Array],
+    sim_fn: Callable[[Array], Array],
+    potential_fn: Callable[[Array], Array],
 ) -> int:
     """
     Find a vector in `X` removing which would decrease the total potential the most.
     """
     # Calculate matrix of pairwise distances and corresponding matrix of potentials
-    dist_mat = dist_matrix(vicinity, similarity_fn)
-    potent_mat = jax.vmap(potential_fn)(dist_mat)
+    dist_mat = dist_matrix(vicinity, dist_fn)
+    sim_mat = jax.vmap(sim_fn)(dist_mat)
+    potent_mat = jax.vmap(potential_fn)(sim_mat)
 
     # Inherent potential of a vector is 0, it means that the vector by itself does not
     # contribute to the total potential. In the future, the penalty for the vector itself
@@ -38,12 +42,14 @@ def _needless_vector_idx(
     return idx
 
 
-@partial(jax.jit, static_argnames=["similarity_fn"])
-def _similarities(x: Array, X: Array, similarity_fn: Callable, n_valid: int):
+@partial(jax.jit, static_argnames=["dist_fn", "sim_fn"])
+def _similarities(
+    x: Array, X: Array, dist_fn: Callable, sim_fn: Callable, n_valid: int
+):
     def sim_i(i):
         return lax.cond(
             i < n_valid,
-            lambda i: similarity_fn(x, X[i]),
+            lambda i: sim_fn(dist_fn(x, X[i])),
             lambda _: jnp.inf,
             i,
         )
@@ -59,15 +65,16 @@ def _k_neighbors(similarities: Array, k_neighbors: int):
 
 @partial(
     jax.jit,
-    static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
+    static_argnames=["dist_fn", "sim_fn", "potential_fn", "k_neighbors"],
     donate_argnames=["x", "X"],
     inline=True,
 )
 def _add_vector(
     x: Array,
     X: Array,
-    similarity_fn: Callable,
-    potential_fn: Callable,
+    dist_fn: Callable[[Array, Array], Array],
+    sim_fn: Callable[[Array], Array],
+    potential_fn: Callable[[Array], Array],
     k_neighbors: int,
     n_valid_vectors: int,
     threshold: float,
@@ -94,7 +101,7 @@ def _add_vector(
 
         # Vector in the vicinity removing which decreases the total potential the most:
         needless_vector_vicinity_idx = _needless_vector_idx(
-            vicinity, similarity_fn, potential_fn
+            vicinity, dist_fn, sim_fn, potential_fn
         )
 
         # If the needless vector is not `x`, replace it with `x`
@@ -112,9 +119,9 @@ def _add_vector(
 
     is_full = X.shape[0] == n_valid_vectors
 
-    sims = _similarities(x, X, similarity_fn, n_valid_vectors)
-    min_dist = sims.min()
-    is_above_threshold = min_dist > threshold
+    sims = _similarities(x, X, dist_fn, sim_fn, n_valid_vectors)
+    min_sim = sims.min()
+    is_above_threshold = min_sim > threshold
 
     branches = [
         below_threshold_or_infinite_potential,
@@ -125,7 +132,7 @@ def _add_vector(
     branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
 
     # If the potential is infinite, the vector is always rejected
-    is_potential_infinite = jnp.isinf(potential_fn(min_dist))
+    is_potential_infinite = jnp.isinf(potential_fn(min_sim))
     branch_idx *= ~is_potential_infinite
 
     result = X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
@@ -160,14 +167,15 @@ def _finalize_updates(changes: Array) -> Array:
 
 @partial(
     jax.jit,
-    static_argnames=["similarity_fn", "potential_fn", "k_neighbors"],
+    static_argnames=["dist_fn", "sim_fn", "potential_fn", "k_neighbors"],
     donate_argnames=["X", "xs"],
 )
 def update_vectors(
     *,
     X: Array,
     xs: Array,
-    similarity_fn: Callable,
+    dist_fn: Callable,
+    sim_fn: Callable,
     potential_fn: Callable,
     k_neighbors: int,
     threshold: float,
@@ -185,7 +193,8 @@ def update_vectors(
         X, updated_idx = _add_vector(
             x,
             X,
-            similarity_fn=similarity_fn,
+            dist_fn=dist_fn,
+            sim_fn=sim_fn,
             potential_fn=potential_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,

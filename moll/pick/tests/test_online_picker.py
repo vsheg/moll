@@ -11,9 +11,9 @@ from sklearn import datasets
 from ...metrics import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from .._online_picker import (
+    DistanceFnLiteral,
     OnlineVectorPicker,
     PotentialFnLiteral,
-    SimilarityFnLiteral,
 )
 
 RANDOM_SEED = 42
@@ -21,7 +21,7 @@ RANDOM_SEED = 42
 
 @pytest.fixture
 def picker_euclidean():
-    return OnlineVectorPicker(capacity=5, similarity_fn=euclidean)
+    return OnlineVectorPicker(capacity=5, dist_fn=euclidean)
 
 
 # Test that the picker API works as expected
@@ -73,11 +73,11 @@ def test_k_neighbors(k_neighbors, expected, text):
         with pytest.raises(expected, match=text):
             print(k_neighbors)
             picker = OnlineVectorPicker(
-                capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
+                capacity=5, dist_fn=euclidean, k_neighbors=k_neighbors
             )
     else:
         picker = OnlineVectorPicker(
-            capacity=5, similarity_fn=euclidean, k_neighbors=k_neighbors
+            capacity=5, dist_fn=euclidean, k_neighbors=k_neighbors
         )
         assert picker.k_neighbors == expected
 
@@ -94,7 +94,7 @@ def picker(request):
     """
     return OnlineVectorPicker(
         capacity=request.param,
-        similarity_fn=euclidean,
+        dist_fn=euclidean,
         k_neighbors=request.param,
     )
 
@@ -308,7 +308,7 @@ def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_siz
 
 # Test picker custom similarity functions
 
-similarity_fns: tuple = get_args(SimilarityFnLiteral) + (
+similarity_fns: tuple = get_args(DistanceFnLiteral) + (
     lambda x, y: euclidean(x, y) + 10,  # similarities must me ordered, shift is ok
     lambda x, y: euclidean(x, y) - 10,  # similarities must me ordered, negative is ok
 )
@@ -319,7 +319,7 @@ def picker_similarity_fn(request):
     similarity_fn = request.param
     return OnlineVectorPicker(
         capacity=5,
-        similarity_fn=similarity_fn,
+        dist_fn=similarity_fn,
         potential_fn="exp",  # exp potential is used to treat negative similarities
     )
 

@@ -21,6 +21,8 @@ from ..metrics import (
     one_minus_tanimoto,
 )
 from ..typing import (
+    DistanceFnCallable,
+    DistanceFnLiteral,
     Indexable,
     PotentialFnCallable,
     PotentialFnLiteral,
@@ -40,7 +42,8 @@ class OnlineVectorPicker:
         self,
         capacity: int,
         *,
-        similarity_fn: SimilarityFnCallable | SimilarityFnLiteral = "euclidean",
+        dist_fn: DistanceFnCallable | DistanceFnLiteral = "euclidean",
+        sim_fn: SimilarityFnCallable | SimilarityFnLiteral = "identity",
         potential_fn: PotentialFnCallable | PotentialFnLiteral = "hyperbolic",
         p: float | int = 1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
@@ -53,9 +56,8 @@ class OnlineVectorPicker:
 
         self.capacity: int = capacity
 
-        self.similarity_fn: SimilarityFnCallable = self._init_similarity_fn(
-            similarity_fn
-        )
+        self.dist_fn: DistanceFnCallable = self._init_dist_fn(dist_fn)
+        self.sim_fn: SimilarityFnCallable = self._init_sim_fn(sim_fn)
 
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
@@ -96,10 +98,10 @@ class OnlineVectorPicker:
 
         return k_neighbors
 
-    def _init_similarity_fn(
-        self, similarity_fn: SimilarityFnLiteral | SimilarityFnCallable
-    ) -> SimilarityFnCallable:
-        match similarity_fn:
+    def _init_dist_fn(
+        self, dist_fn: DistanceFnLiteral | DistanceFnCallable
+    ) -> DistanceFnCallable:
+        match dist_fn:
             case "euclidean":
                 return euclidean
             case "manhattan":
@@ -110,7 +112,15 @@ class OnlineVectorPicker:
                 return one_minus_tanimoto
             case "negative_cosine":
                 return negative_cosine
-        return similarity_fn
+        return dist_fn
+
+    def _init_sim_fn(
+        self, sim_fn: SimilarityFnLiteral | SimilarityFnCallable
+    ) -> SimilarityFnCallable:
+        match sim_fn:
+            case "identity":
+                return lambda x: x
+        return sim_fn
 
     def _init_potential_fn(
         self, potential_fn: PotentialFnLiteral | PotentialFnCallable, p: float
@@ -231,7 +241,8 @@ class OnlineVectorPicker:
             ) = update_vectors(
                 X=self._data,
                 xs=vectors,
-                similarity_fn=self.similarity_fn,
+                dist_fn=self.dist_fn,
+                sim_fn=self.sim_fn,
                 potential_fn=self.potential_fn,
                 k_neighbors=self.k_neighbors,
                 threshold=self.threshold,

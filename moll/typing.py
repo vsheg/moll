@@ -17,6 +17,8 @@ from jax.typing import ArrayLike
 from rdkit import Chem
 
 __all__ = [
+    "DistanceFnLiteral",
+    "DistanceFnCallable",
     "SimilarityFnLiteral",
     "SimilarityFnCallable",
     "PotentialFnLiteral",
@@ -25,10 +27,13 @@ __all__ = [
     "OneOrMany",
 ]
 
-SimilarityFnLiteral = Literal[
+DistanceFnLiteral = Literal[
     "euclidean", "manhattan", "one_minus_tanimoto", "mismatches", "negative_cosine"
 ]
-SimilarityFnCallable: TypeAlias = Callable[[Array, Array], ArrayLike]
+DistanceFnCallable: TypeAlias = Callable[[Array, Array], ArrayLike]
+
+SimilarityFnLiteral = Literal["identity"]
+SimilarityFnCallable: TypeAlias = Callable[[Array], ArrayLike]
 
 PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
 PotentialFnCallable: TypeAlias = Callable[[float], ArrayLike]
