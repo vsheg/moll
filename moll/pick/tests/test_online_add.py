@@ -56,7 +56,7 @@ def test_find_needless_vector(array, expected, dist_fn):
     array = jnp.array(array)
     # exp potential is used to treat negative distances
     idx = _needless_vector_idx(
-        array, dist_fn, sim_fn=lambda d: d, potential_fn=lambda s: jnp.exp(-s)
+        array, dist_fn, sim_fn=lambda d: d, loss_fn=lambda s: jnp.exp(-s)
     )
     assert idx == expected
 
@@ -94,7 +94,7 @@ def test_add_vector(X, dist_fn):
         X=X,
         dist_fn=dist_fn,
         sim_fn=lambda d: d,
-        potential_fn=lambda s: jnp.exp(-s),
+        loss_fn=lambda s: jnp.exp(-s),
         k_neighbors=5,
         n_valid_vectors=5,
         threshold=-jnp.inf,
@@ -128,7 +128,7 @@ def test_update_vectors(X, xs, acc_mask):
         xs=xs,
         dist_fn=euclidean,
         sim_fn=lambda d: d,
-        potential_fn=lambda s: s**-1,
+        loss_fn=lambda s: s**-1,
         k_neighbors=5,
         n_valid=5,
         threshold=0.0,

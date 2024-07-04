@@ -44,7 +44,7 @@ class OnlineVectorPicker:
         *,
         dist_fn: DistanceFnCallable | DistanceFnLiteral = "euclidean",
         sim_fn: SimilarityFnCallable | SimilarityFnLiteral = "identity",
-        potential_fn: PotentialFnCallable | PotentialFnLiteral = "hyperbolic",
+        loss_fn: PotentialFnCallable | PotentialFnLiteral = "hyperbolic",
         p: float | int = 1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = -jnp.inf,
@@ -62,9 +62,7 @@ class OnlineVectorPicker:
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
         self.p: float | int = p
-        self.potential_fn: PotentialFnCallable = self._init_potential_fn(
-            potential_fn, self.p
-        )
+        self.loss_fn: PotentialFnCallable = self._init_loss_fn(loss_fn, self.p)
 
         self.threshold: float = threshold
 
@@ -122,10 +120,10 @@ class OnlineVectorPicker:
                 return lambda x: x
         return sim_fn
 
-    def _init_potential_fn(
-        self, potential_fn: PotentialFnLiteral | PotentialFnCallable, p: float
+    def _init_loss_fn(
+        self, loss_fn: PotentialFnLiteral | PotentialFnCallable, p: float
     ) -> PotentialFnCallable:
-        match potential_fn:
+        match loss_fn:
             case "hyperbolic":
                 return lambda d: jnp.where(d > 0, jnp.power(d, -p), jnp.inf)
             case "exp":
@@ -141,7 +139,7 @@ class OnlineVectorPicker:
                 )
             case "log":
                 return lambda d: jnp.where(d > 0, -jnp.log(p * d), jnp.inf)
-        return potential_fn
+        return loss_fn
 
     def _init_data(self, vector: Array, label=None):
         """Initialize the picker with the first vector."""
@@ -243,7 +241,7 @@ class OnlineVectorPicker:
                 xs=vectors,
                 dist_fn=self.dist_fn,
                 sim_fn=self.sim_fn,
-                potential_fn=self.potential_fn,
+                loss_fn=self.loss_fn,
                 k_neighbors=self.k_neighbors,
                 threshold=self.threshold,
                 n_valid=self._n_valid,
