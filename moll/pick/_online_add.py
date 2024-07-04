@@ -12,12 +12,12 @@ from jax import Array, lax
 from ..utils import dist_matrix, fill_diagonal, matrix_cross_sum
 
 
-@partial(jax.jit, static_argnames=["dist_fn", "sim_fn", "potential_fn"])
+@partial(jax.jit, static_argnames=["dist_fn", "sim_fn", "loss_fn"])
 def _needless_vector_idx(
     vicinity: Array,
     dist_fn: Callable[[Array, Array], Array],
     sim_fn: Callable[[Array], Array],
-    potential_fn: Callable[[Array], Array],
+    loss_fn: Callable[[Array], Array],
 ) -> int:
     """
     Find a vector in `X` removing which would decrease the total potential the most.
@@ -25,7 +25,7 @@ def _needless_vector_idx(
     # Calculate matrix of pairwise distances and corresponding matrix of potentials
     dist_mat = dist_matrix(vicinity, dist_fn)
     sim_mat = jax.vmap(sim_fn)(dist_mat)
-    potent_mat = jax.vmap(potential_fn)(sim_mat)
+    potent_mat = jax.vmap(loss_fn)(sim_mat)
 
     # Inherent potential of a vector is 0, it means that the vector by itself does not
     # contribute to the total potential. In the future, the penalty for the vector itself
@@ -65,7 +65,7 @@ def _k_neighbors(similarities: Array, k_neighbors: int):
 
 @partial(
     jax.jit,
-    static_argnames=["dist_fn", "sim_fn", "potential_fn", "k_neighbors"],
+    static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
     donate_argnames=["x", "X"],
     inline=True,
 )
@@ -74,7 +74,7 @@ def _add_vector(
     X: Array,
     dist_fn: Callable[[Array, Array], Array],
     sim_fn: Callable[[Array], Array],
-    potential_fn: Callable[[Array], Array],
+    loss_fn: Callable[[Array], Array],
     k_neighbors: int,
     n_valid_vectors: int,
     threshold: float,
@@ -101,7 +101,7 @@ def _add_vector(
 
         # Vector in the vicinity removing which decreases the total potential the most:
         needless_vector_vicinity_idx = _needless_vector_idx(
-            vicinity, dist_fn, sim_fn, potential_fn
+            vicinity, dist_fn, sim_fn, loss_fn
         )
 
         # If the needless vector is not `x`, replace it with `x`
@@ -132,7 +132,7 @@ def _add_vector(
     branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
 
     # If the potential is infinite, the vector is always rejected
-    is_potential_infinite = jnp.isinf(potential_fn(min_sim))
+    is_potential_infinite = jnp.isinf(loss_fn(min_sim))
     branch_idx *= ~is_potential_infinite
 
     result = X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
@@ -167,7 +167,7 @@ def _finalize_updates(changes: Array) -> Array:
 
 @partial(
     jax.jit,
-    static_argnames=["dist_fn", "sim_fn", "potential_fn", "k_neighbors"],
+    static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
     donate_argnames=["X", "xs"],
 )
 def update_vectors(
@@ -176,7 +176,7 @@ def update_vectors(
     xs: Array,
     dist_fn: Callable,
     sim_fn: Callable,
-    potential_fn: Callable,
+    loss_fn: Callable,
     k_neighbors: int,
     threshold: float,
     n_valid: int,
@@ -195,7 +195,7 @@ def update_vectors(
             X,
             dist_fn=dist_fn,
             sim_fn=sim_fn,
-            potential_fn=potential_fn,
+            loss_fn=loss_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
             n_valid_vectors=n_valid_new,
