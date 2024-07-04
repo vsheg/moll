@@ -13,13 +13,6 @@ from loguru import logger
 from numpy.typing import NDArray
 from public import public
 
-from ..metrics import (
-    euclidean,
-    manhattan,
-    mismatches,
-    negative_cosine,
-    one_minus_tanimoto,
-)
 from ..typing import (
     DistanceFnCallable,
     DistanceFnLiteral,
@@ -29,6 +22,7 @@ from ..typing import (
     SimilarityFnCallable,
     SimilarityFnLiteral,
 )
+from ..utils import get_function_from_literal
 from ._online_add import update_vectors
 
 
@@ -56,7 +50,9 @@ class OnlineVectorPicker:
 
         self.capacity: int = capacity
 
-        self.dist_fn: DistanceFnCallable = self._init_dist_fn(dist_fn)
+        self.dist_fn: DistanceFnCallable = get_function_from_literal(
+            dist_fn, module="moll.metrics"
+        )
         self.sim_fn: SimilarityFnCallable = self._init_sim_fn(sim_fn)
 
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
@@ -95,22 +91,6 @@ class OnlineVectorPicker:
                 )
 
         return k_neighbors
-
-    def _init_dist_fn(
-        self, dist_fn: DistanceFnLiteral | DistanceFnCallable
-    ) -> DistanceFnCallable:
-        match dist_fn:
-            case "euclidean":
-                return euclidean
-            case "manhattan":
-                return manhattan
-            case "mismatches":
-                return mismatches
-            case "one_minus_tanimoto":
-                return one_minus_tanimoto
-            case "negative_cosine":
-                return negative_cosine
-        return dist_fn
 
     def _init_sim_fn(
         self, sim_fn: SimilarityFnLiteral | SimilarityFnCallable
