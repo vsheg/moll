@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import pytest
 
-from ...metrics import euclidean
+from ...measures import euclidean
 from .._online_add import (
     _add_vector,
     _finalize_updates,
