@@ -352,12 +352,12 @@ def get_named_entity(module: str, name: str):
         >>> get_named_entity("functools", "partial")
         <class 'functools.partial'>
 
-        >>> get_named_entity("moll.metrics", "does_not_exist")
+        >>> get_named_entity("moll.does_not_exist", "does_not_exist")
         Traceback (most recent call last):
             ...
         ValueError: Could not find `does_not_exist` in ...
 
-        >>> get_named_entity("moll.metrics", "euclidean")
+        >>> get_named_entity("moll.measures", "euclidean")
         <PjitFunction of ...>
     """
     try:

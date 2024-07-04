@@ -51,7 +51,7 @@ class OnlineVectorPicker:
         self.capacity: int = capacity
 
         self.dist_fn: DistanceFnCallable = get_function_from_literal(
-            dist_fn, module="moll.metrics"
+            dist_fn, module="moll.measures"
         )
         self.sim_fn: SimilarityFnCallable = self._init_sim_fn(sim_fn)
 
