@@ -320,7 +320,7 @@ def picker_similarity_fn(request):
     return OnlineVectorPicker(
         capacity=5,
         dist_fn=similarity_fn,
-        potential_fn="exp",  # exp potential is used to treat negative similarities
+        loss_fn="exp",  # exp potential is used to treat negative similarities
     )
 
 
@@ -354,15 +354,15 @@ def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
 # Test custom potential functions
 
 
-potential_fns: tuple = get_args(PotentialFnLiteral) + (
+loss_fns: tuple = get_args(PotentialFnLiteral) + (
     lambda d: jnp.exp(d),  # potentials must me ordered, negative is ok
 )
 
 
-@pytest.fixture(params=potential_fns)
-def picker_potential_fn(request):
-    potential_fn = request.param
-    return OnlineVectorPicker(capacity=5, potential_fn=potential_fn)
+@pytest.fixture(params=loss_fns)
+def picker_loss_fn(request):
+    loss_fn = request.param
+    return OnlineVectorPicker(capacity=5, loss_fn=loss_fn)
 
 
 @pytest.fixture
@@ -370,14 +370,12 @@ def uniform_rectangle(n_vectors=1_000, dim=2, seed: int = RANDOM_SEED):
     return jax.random.uniform(jax.random.PRNGKey(RANDOM_SEED), (n_vectors, dim))
 
 
-def test_custom_potential_fn(picker_potential_fn, uniform_rectangle):
-    picker = picker_potential_fn
+def test_custom_loss_fn(picker_loss_fn, uniform_rectangle):
+    picker = picker_loss_fn
     picker.update(uniform_rectangle)
 
     min_dist_orig = dists_to_nearest_neighbor(uniform_rectangle, euclidean).min()
-    min_dist_new = dists_to_nearest_neighbor(
-        picker_potential_fn.vectors, euclidean
-    ).min()
+    min_dist_new = dists_to_nearest_neighbor(picker_loss_fn.vectors, euclidean).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
     factor = 1.5
