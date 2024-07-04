@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import pytest
 from sklearn import datasets
 
-from ...metrics import euclidean
+from ...measures import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from .._online_picker import (
     DistanceFnLiteral,

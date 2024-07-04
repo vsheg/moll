@@ -29,7 +29,7 @@ if TEST:
 
 # Submodules are available as attributes
 from . import (  # noqa: F401 E402 (unused import, import at top of file)
-    metrics,
+    measures,
     pick,
     typing,
     utils,
