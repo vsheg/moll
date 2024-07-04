@@ -1,5 +1,5 @@
 import time
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Sequence
 from functools import partial
 from pathlib import Path
 from typing import TypeAlias
@@ -341,3 +341,37 @@ def fold_jax(
     if dtype is not None:
         vec = vec.astype(dtype)
     return vec
+
+
+@public
+def get_named_entity(module: str, name: str):
+    """
+    Return object from module by name.
+
+    Examples:
+        >>> get_named_entity("functools", "partial")
+        <class 'functools.partial'>
+
+        >>> get_named_entity("moll.metrics", "does_not_exist")
+        Traceback (most recent call last):
+            ...
+        ValueError: Could not find `does_not_exist` in ...
+
+        >>> get_named_entity("moll.metrics", "euclidean")
+        <PjitFunction of ...>
+    """
+    try:
+        module = __import__(module, fromlist=[name])
+        return getattr(module, name)
+    except (ImportError, AttributeError):
+        raise ValueError(f"Could not find `{name}` in `{module}`") from None
+
+
+@public
+def get_function_from_literal(fn: str | Callable, module: str):
+    """
+    Convert a literal name to a function or return the function as is.
+    """
+    if isinstance(fn, str):
+        return get_named_entity(module, fn)
+    return fn
