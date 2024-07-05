@@ -368,10 +368,35 @@ def get_named_entity(module: str, name: str):
 
 
 @public
-def get_function_from_literal(fn: str | Callable, module: str):
+def get_function_from_literal(fn: str | Callable, module: str) -> Callable:
     """
     Convert a literal name to a function or return the function as is.
     """
     if isinstance(fn, str):
         return get_named_entity(module, fn)
     return fn
+
+
+@public
+def hasarg(fn: Callable, arg: str) -> bool:
+    """
+    Check if a function has an argument.
+
+    Examples:
+        >>> def fn(x, y):
+        ...     pass
+        >>> hasarg(fn, "x")
+        True
+
+        >>> hasarg(fn, "z")
+        False
+
+        >>> hasarg(lambda x, y: None, "y")
+        True
+
+        >>> hasarg(lambda x, y: None, "z")
+        False
+    """
+    import inspect
+
+    return arg in inspect.signature(fn).parameters
