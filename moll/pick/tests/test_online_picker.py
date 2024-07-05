@@ -320,7 +320,7 @@ def picker_similarity_fn(request):
     return OnlineVectorPicker(
         capacity=5,
         dist_fn=similarity_fn,
-        loss_fn="exp",  # exp potential is used to treat negative similarities
+        loss_fn="exponential",  # exp potential is used to treat negative similarities
     )
 
 
