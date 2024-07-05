@@ -35,7 +35,13 @@ DistanceFnCallable: TypeAlias = Callable[[Array, Array], ArrayLike]
 SimilarityFnLiteral = Literal["identity"]
 SimilarityFnCallable: TypeAlias = Callable[[Array], ArrayLike]
 
-PotentialFnLiteral = Literal["hyperbolic", "exp", "lj", "log"]
+# TODO: maybe use abbreviations?
+PotentialFnLiteral = Literal[
+    "power",
+    "exponential",
+    "lennard_jones",
+    "logarithmic",
+]
 PotentialFnCallable: TypeAlias = Callable[[float], ArrayLike]
 
 
