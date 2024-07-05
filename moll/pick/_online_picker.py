@@ -4,6 +4,7 @@ Online algorithm for picking a subset of vectors based on their similarity.
 
 
 from collections.abc import Hashable, Iterable
+from functools import partial
 
 import jax.numpy as jnp
 import numpy as np
@@ -22,7 +23,7 @@ from ..typing import (
     SimilarityFnCallable,
     SimilarityFnLiteral,
 )
-from ..utils import get_function_from_literal
+from ..utils import get_function_from_literal, hasarg
 from ._online_add import update_vectors
 
 
@@ -38,8 +39,8 @@ class OnlineVectorPicker:
         *,
         dist_fn: DistanceFnCallable | DistanceFnLiteral = "euclidean",
         sim_fn: SimilarityFnCallable | SimilarityFnLiteral = "identity",
-        loss_fn: PotentialFnCallable | PotentialFnLiteral = "hyperbolic",
-        p: float | int = 1,
+        loss_fn: PotentialFnCallable | PotentialFnLiteral = "power",
+        p: float | int = -1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = -jnp.inf,
         dtype: DTypeLike | None = None,
@@ -51,14 +52,18 @@ class OnlineVectorPicker:
         self.capacity: int = capacity
 
         self.dist_fn: DistanceFnCallable = get_function_from_literal(
-            dist_fn, module="moll.measures"
+            dist_fn, module="moll.measures._distance"
         )
-        self.sim_fn: SimilarityFnCallable = self._init_sim_fn(sim_fn)
-
-        self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
+        self.sim_fn: SimilarityFnCallable = get_function_from_literal(
+            sim_fn, module="moll.measures._similarity"
+        )
 
         self.p: float | int = p
-        self.loss_fn: PotentialFnCallable = self._init_loss_fn(loss_fn, self.p)
+        loss_fn = get_function_from_literal(loss_fn, module="moll.measures._loss")
+        loss_fn = partial(loss_fn, p=p) if hasarg(loss_fn, "p") else loss_fn
+        self.loss_fn: PotentialFnCallable = loss_fn
+
+        self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
         self.threshold: float = threshold
 
@@ -91,35 +96,6 @@ class OnlineVectorPicker:
                 )
 
         return k_neighbors
-
-    def _init_sim_fn(
-        self, sim_fn: SimilarityFnLiteral | SimilarityFnCallable
-    ) -> SimilarityFnCallable:
-        match sim_fn:
-            case "identity":
-                return lambda x: x
-        return sim_fn
-
-    def _init_loss_fn(
-        self, loss_fn: PotentialFnLiteral | PotentialFnCallable, p: float
-    ) -> PotentialFnCallable:
-        match loss_fn:
-            case "hyperbolic":
-                return lambda d: jnp.where(d > 0, jnp.power(d, -p), jnp.inf)
-            case "exp":
-                return lambda d: jnp.exp(-p * d)
-            case "lj":
-                sigma: float = p * 0.5 ** (1 / 6)
-                return lambda d: (
-                    jnp.where(
-                        d > 0,
-                        jnp.power(sigma / d, 12.0) - jnp.power(sigma / d, 6.0),
-                        jnp.inf,
-                    )
-                )
-            case "log":
-                return lambda d: jnp.where(d > 0, -jnp.log(p * d), jnp.inf)
-        return loss_fn
 
     def _init_data(self, vector: Array, label=None):
         """Initialize the picker with the first vector."""
