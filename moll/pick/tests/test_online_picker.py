@@ -170,7 +170,7 @@ def test_add_many_random(picker, centers_and_vectors):
         )
 
 
-def test_update_many_random(picker, centers_and_vectors, n_batches):
+def test_partial_fit_many_random(picker, centers_and_vectors, n_batches):
     centers, vectors = centers_and_vectors
 
     assert picker.is_empty() is True
@@ -200,7 +200,7 @@ def test_update_many_random(picker, centers_and_vectors, n_batches):
         )
 
 
-def test_update_same_vectors(picker_euclidean: OnlineVectorPicker):
+def test_partial_fit_same_vectors(picker_euclidean: OnlineVectorPicker):
     center1 = jnp.array([0, 0, 0])
     center2 = jnp.array([0, 10, 0])
     same_centers = [jnp.array([10, 10, 10]) for _ in range(10)]
