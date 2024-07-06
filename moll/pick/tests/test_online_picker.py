@@ -228,6 +228,20 @@ def test_partial_fit_same_vectors(picker_euclidean: OnlineVectorPicker):
     assert len(picker_euclidean.labels) == n_accepted
 
 
+def test_fit_and_partial_fit(picker, centers_and_vectors):
+    centers, vectors = centers_and_vectors
+
+    from copy import deepcopy
+
+    picker_fit = deepcopy(picker)
+    picker_fit.fit(vectors)
+
+    picker_partial_fit = picker
+    picker_partial_fit.partial_fit(vectors)
+
+    assert (picker_fit.vectors == picker_partial_fit.vectors).all()
+
+
 @pytest.fixture
 def circles(factor=0.1, random_state=42, n_samples=20):
     """
