@@ -13,6 +13,7 @@ from jax.typing import ArrayLike, DTypeLike
 from loguru import logger
 from numpy.typing import NDArray
 from public import public
+from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..typing import (
     DistanceFnCallable,
@@ -28,7 +29,7 @@ from ._online_add import update_vectors
 
 
 @public
-class OnlineVectorPicker:
+class OnlineVectorPicker(BaseEstimator, TransformerMixin):
     """
     Greedy algorithm for picking a subset of vectors in an online fashion.
     """
@@ -236,6 +237,13 @@ class OnlineVectorPicker:
         )
         is_accepted = n_accepted > 0
         return is_accepted
+
+    def transform(self, X):
+        return self.vectors
+
+    def fit_transform(self, X, y=None):
+        self.fit(X, y)
+        return self.transform(X)
 
     def warm(self, vectors: Array, labels: Indexable[Hashable] | None = None):
         """
