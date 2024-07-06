@@ -12,8 +12,8 @@ from ...measures import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from .._online_picker import (
     DistanceFnLiteral,
+    LossFnLiteral,
     OnlineVectorPicker,
-    PotentialFnLiteral,
 )
 
 RANDOM_SEED = 42
@@ -355,7 +355,7 @@ def test_custom_similarity_fn(picker_dist_fn, integer_vectors):
 # Test custom loss functions
 
 
-loss_fns: tuple = get_args(PotentialFnLiteral) + (
+loss_fns: tuple = get_args(LossFnLiteral) + (
     lambda d: jnp.exp(d) - 100,  # losses must me ordered, negative is ok
 )
 

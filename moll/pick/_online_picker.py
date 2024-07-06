@@ -18,8 +18,8 @@ from ..typing import (
     DistanceFnCallable,
     DistanceFnLiteral,
     Indexable,
-    PotentialFnCallable,
-    PotentialFnLiteral,
+    LossFnCallable,
+    LossFnLiteral,
     SimilarityFnCallable,
     SimilarityFnLiteral,
 )
@@ -39,7 +39,7 @@ class OnlineVectorPicker:
         *,
         dist_fn: DistanceFnCallable | DistanceFnLiteral = "euclidean",
         sim_fn: SimilarityFnCallable | SimilarityFnLiteral = "identity",
-        loss_fn: PotentialFnCallable | PotentialFnLiteral = "power",
+        loss_fn: LossFnCallable | LossFnLiteral = "power",
         p: float | int = -1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = -jnp.inf,
@@ -61,7 +61,7 @@ class OnlineVectorPicker:
         self.p: float | int = p
         loss_fn = get_function_from_literal(loss_fn, module="moll.measures._loss")
         loss_fn = partial(loss_fn, p=p) if hasarg(loss_fn, "p") else loss_fn
-        self.loss_fn: PotentialFnCallable = loss_fn
+        self.loss_fn: LossFnCallable = loss_fn
 
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
