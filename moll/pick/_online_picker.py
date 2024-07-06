@@ -9,8 +9,7 @@ from functools import partial
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
-from jax.typing import ArrayLike, DTypeLike
-from loguru import logger
+from jax.typing import DTypeLike
 from numpy.typing import NDArray
 from public import public
 from sklearn.base import BaseEstimator, TransformerMixin
