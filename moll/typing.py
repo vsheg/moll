@@ -21,8 +21,8 @@ __all__ = [
     "DistanceFnCallable",
     "SimilarityFnLiteral",
     "SimilarityFnCallable",
-    "PotentialFnLiteral",
-    "PotentialFnCallable",
+    "LossFnLiteral",
+    "LossFnCallable",
     "Indexable",
     "OneOrMany",
 ]
@@ -36,13 +36,13 @@ SimilarityFnLiteral = Literal["identity"]
 SimilarityFnCallable: TypeAlias = Callable[[Array], ArrayLike]
 
 # TODO: maybe use abbreviations?
-PotentialFnLiteral = Literal[
+LossFnLiteral = Literal[
     "power",
     "exponential",
     "lennard_jones",
     "logarithmic",
 ]
-PotentialFnCallable: TypeAlias = Callable[[float], ArrayLike]
+LossFnCallable: TypeAlias = Callable[[float], ArrayLike]
 
 
 RDKitMol: TypeAlias = Chem.rdchem.Mol
