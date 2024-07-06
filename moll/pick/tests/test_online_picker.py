@@ -12,8 +12,8 @@ from ...measures import euclidean
 from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
 from .._online_picker import (
     DistanceFnLiteral,
+    LossFnLiteral,
     OnlineVectorPicker,
-    PotentialFnLiteral,
 )
 
 RANDOM_SEED = 42
@@ -170,7 +170,7 @@ def test_add_many_random(picker, centers_and_vectors):
         )
 
 
-def test_update_many_random(picker, centers_and_vectors, n_batches):
+def test_partial_fit_many_random(picker, centers_and_vectors, n_batches):
     centers, vectors = centers_and_vectors
 
     assert picker.is_empty() is True
@@ -180,7 +180,7 @@ def test_update_many_random(picker, centers_and_vectors, n_batches):
     n_accepted_total = 0
 
     for batch in batches:
-        n_accepted = picker.update(batch)
+        n_accepted = picker.partial_fit(batch)
         assert n_accepted >= 0
         assert n_accepted <= picker.capacity
         n_accepted_total += n_accepted
@@ -200,7 +200,7 @@ def test_update_many_random(picker, centers_and_vectors, n_batches):
         )
 
 
-def test_update_same_vectors(picker_euclidean: OnlineVectorPicker):
+def test_partial_fit_same_vectors(picker_euclidean: OnlineVectorPicker):
     center1 = jnp.array([0, 0, 0])
     center2 = jnp.array([0, 10, 0])
     same_centers = [jnp.array([10, 10, 10]) for _ in range(10)]
@@ -226,6 +226,20 @@ def test_update_same_vectors(picker_euclidean: OnlineVectorPicker):
 
     assert picker_euclidean.labels is not None
     assert len(picker_euclidean.labels) == n_accepted
+
+
+def test_fit_and_partial_fit(picker, centers_and_vectors):
+    centers, vectors = centers_and_vectors
+
+    from copy import deepcopy
+
+    picker_fit = deepcopy(picker)
+    picker_fit.fit(vectors)
+
+    picker_partial_fit = picker
+    picker_partial_fit.partial_fit(vectors)
+
+    assert (picker_fit.vectors == picker_partial_fit.vectors).all()
 
 
 @pytest.fixture
@@ -257,7 +271,7 @@ def test_labels_add(picker_euclidean: OnlineVectorPicker, circles):
 def test_manual_labels_update(picker_euclidean: OnlineVectorPicker, circles):
     vectors, labels = circles
 
-    _n_accepted = picker_euclidean.update(vectors, labels=labels)
+    _n_accepted = picker_euclidean.partial_fit(vectors, labels=labels)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -272,7 +286,7 @@ def test_auto_labels_update(picker_euclidean: OnlineVectorPicker, circles):
     large_circle_idxs = {idx for tag, idx in _labels if tag == "large"}
     small_circle_idxs = {idx for tag, idx in _labels if tag == "small"}
 
-    _n_accepted = picker_euclidean.update(vectors)
+    _n_accepted = picker_euclidean.partial_fit(vectors)
 
     assert picker_euclidean.labels
     labels_generated = set(picker_euclidean.labels)
@@ -297,7 +311,7 @@ def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_siz
     labels = labels[init_batch_size:]
 
     picker_euclidean.warm(batch_init, labels_init)
-    picker_euclidean.update(batch, labels)
+    picker_euclidean.partial_fit(batch, labels)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -306,21 +320,21 @@ def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_siz
     assert counts["small"] <= 1
 
 
-# Test picker custom similarity functions
+# Test picker custom distance functions
 
-similarity_fns: tuple = get_args(DistanceFnLiteral) + (
-    lambda x, y: euclidean(x, y) + 10,  # similarities must me ordered, shift is ok
-    lambda x, y: euclidean(x, y) - 10,  # similarities must me ordered, negative is ok
+dist_fns: tuple = get_args(DistanceFnLiteral) + (
+    lambda x, y: euclidean(x, y) + 10,  # distances must me ordered, shift is ok
+    lambda x, y: euclidean(x, y) - 10,  # distances must me ordered, negative is ok
 )
 
 
-@pytest.fixture(params=similarity_fns)
-def picker_similarity_fn(request):
-    similarity_fn = request.param
+@pytest.fixture(params=dist_fns)
+def picker_dist_fn(request):
+    dist_fn = request.param
     return OnlineVectorPicker(
         capacity=5,
-        dist_fn=similarity_fn,
-        loss_fn="exponential",  # exp potential is used to treat negative similarities
+        dist_fn=dist_fn,
+        loss_fn="exponential",  # exp potential is used to treat negative distances
     )
 
 
@@ -334,16 +348,14 @@ def integer_vectors(n_vectors=1_000, dim=10, seed: int = RANDOM_SEED):
     )
 
 
-def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
-    picker_similarity_fn.update(integer_vectors)
+def test_custom_similarity_fn(picker_dist_fn, integer_vectors):
+    picker_dist_fn.partial_fit(integer_vectors)
 
-    assert picker_similarity_fn.n_seen == len(integer_vectors)
-    assert picker_similarity_fn.n_accepted == 5
+    assert picker_dist_fn.n_seen == len(integer_vectors)
+    assert picker_dist_fn.n_accepted == 5
 
     min_dist_orig = dists_to_nearest_neighbor(integer_vectors, euclidean).min()
-    min_dist_new = dists_to_nearest_neighbor(
-        picker_similarity_fn.vectors, euclidean
-    ).min()
+    min_dist_new = dists_to_nearest_neighbor(picker_dist_fn.vectors, euclidean).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
     factor = 1.5
@@ -351,11 +363,14 @@ def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
     assert (min_dist_new > factor * min_dist_orig).all()
 
 
-# Test custom potential functions
+# TODO: Test custom similarity functions
 
 
-loss_fns: tuple = get_args(PotentialFnLiteral) + (
-    lambda d: jnp.exp(d),  # potentials must me ordered, negative is ok
+# Test custom loss functions
+
+
+loss_fns: tuple = get_args(LossFnLiteral) + (
+    lambda d: jnp.exp(d) - 100,  # losses must me ordered, negative is ok
 )
 
 
@@ -372,7 +387,7 @@ def uniform_rectangle(n_vectors=1_000, dim=2, seed: int = RANDOM_SEED):
 
 def test_custom_loss_fn(picker_loss_fn, uniform_rectangle):
     picker = picker_loss_fn
-    picker.update(uniform_rectangle)
+    picker.partial_fit(uniform_rectangle)
 
     min_dist_orig = dists_to_nearest_neighbor(uniform_rectangle, euclidean).min()
     min_dist_new = dists_to_nearest_neighbor(picker_loss_fn.vectors, euclidean).min()

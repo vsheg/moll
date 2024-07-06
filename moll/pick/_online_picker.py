@@ -9,17 +9,17 @@ from functools import partial
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
-from jax.typing import ArrayLike, DTypeLike
-from loguru import logger
+from jax.typing import DTypeLike
 from numpy.typing import NDArray
 from public import public
+from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..typing import (
     DistanceFnCallable,
     DistanceFnLiteral,
     Indexable,
-    PotentialFnCallable,
-    PotentialFnLiteral,
+    LossFnCallable,
+    LossFnLiteral,
     SimilarityFnCallable,
     SimilarityFnLiteral,
 )
@@ -28,7 +28,7 @@ from ._online_add import update_vectors
 
 
 @public
-class OnlineVectorPicker:
+class OnlineVectorPicker(BaseEstimator, TransformerMixin):
     """
     Greedy algorithm for picking a subset of vectors in an online fashion.
     """
@@ -39,7 +39,7 @@ class OnlineVectorPicker:
         *,
         dist_fn: DistanceFnCallable | DistanceFnLiteral = "euclidean",
         sim_fn: SimilarityFnCallable | SimilarityFnLiteral = "identity",
-        loss_fn: PotentialFnCallable | PotentialFnLiteral = "power",
+        loss_fn: LossFnCallable | LossFnLiteral = "power",
         p: float | int = -1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
         threshold: float = -jnp.inf,
@@ -61,7 +61,7 @@ class OnlineVectorPicker:
         self.p: float | int = p
         loss_fn = get_function_from_literal(loss_fn, module="moll.measures._loss")
         loss_fn = partial(loss_fn, p=p) if hasarg(loss_fn, "p") else loss_fn
-        self.loss_fn: PotentialFnCallable = loss_fn
+        self.loss_fn: LossFnCallable = loss_fn
 
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
@@ -150,7 +150,7 @@ class OnlineVectorPicker:
 
         return jnp.array(data, dtype=dtype)
 
-    def update(
+    def partial_fit(
         self, vectors: Iterable, labels: Indexable[Hashable] | None = None
     ) -> int:
         """
@@ -219,16 +219,30 @@ class OnlineVectorPicker:
 
         return n_accepted
 
+    def fit(self, X, y=None):
+        """
+        Pick a subset of vectors based on their similarity.
+        """
+        self.partial_fit(X, y)
+        return self
+
     def add(self, vector: Array, label: Hashable | None = None) -> bool:
         """
         Add a vector to the picker.
         """
-        n_accepted = self.update(
+        n_accepted = self.partial_fit(
             vectors=[vector],
             labels=[label] if label else None,  # type: ignore
         )
         is_accepted = n_accepted > 0
         return is_accepted
+
+    def transform(self, X):
+        return self.vectors
+
+    def fit_transform(self, X, y=None):
+        self.fit(X, y)
+        return self.transform(X)
 
     def warm(self, vectors: Array, labels: Indexable[Hashable] | None = None):
         """
