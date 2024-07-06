@@ -150,7 +150,7 @@ class OnlineVectorPicker:
 
         return jnp.array(data, dtype=dtype)
 
-    def update(
+    def partial_fit(
         self, vectors: Iterable, labels: Indexable[Hashable] | None = None
     ) -> int:
         """
@@ -223,7 +223,7 @@ class OnlineVectorPicker:
         """
         Add a vector to the picker.
         """
-        n_accepted = self.update(
+        n_accepted = self.partial_fit(
             vectors=[vector],
             labels=[label] if label else None,  # type: ignore
         )

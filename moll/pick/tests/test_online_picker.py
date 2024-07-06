@@ -180,7 +180,7 @@ def test_update_many_random(picker, centers_and_vectors, n_batches):
     n_accepted_total = 0
 
     for batch in batches:
-        n_accepted = picker.update(batch)
+        n_accepted = picker.partial_fit(batch)
         assert n_accepted >= 0
         assert n_accepted <= picker.capacity
         n_accepted_total += n_accepted
@@ -257,7 +257,7 @@ def test_labels_add(picker_euclidean: OnlineVectorPicker, circles):
 def test_manual_labels_update(picker_euclidean: OnlineVectorPicker, circles):
     vectors, labels = circles
 
-    _n_accepted = picker_euclidean.update(vectors, labels=labels)
+    _n_accepted = picker_euclidean.partial_fit(vectors, labels=labels)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -272,7 +272,7 @@ def test_auto_labels_update(picker_euclidean: OnlineVectorPicker, circles):
     large_circle_idxs = {idx for tag, idx in _labels if tag == "large"}
     small_circle_idxs = {idx for tag, idx in _labels if tag == "small"}
 
-    _n_accepted = picker_euclidean.update(vectors)
+    _n_accepted = picker_euclidean.partial_fit(vectors)
 
     assert picker_euclidean.labels
     labels_generated = set(picker_euclidean.labels)
@@ -297,7 +297,7 @@ def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_siz
     labels = labels[init_batch_size:]
 
     picker_euclidean.warm(batch_init, labels_init)
-    picker_euclidean.update(batch, labels)
+    picker_euclidean.partial_fit(batch, labels)
 
     assert picker_euclidean.labels
     counts = Counter(circle for circle, idx in picker_euclidean.labels)
@@ -335,7 +335,7 @@ def integer_vectors(n_vectors=1_000, dim=10, seed: int = RANDOM_SEED):
 
 
 def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
-    picker_similarity_fn.update(integer_vectors)
+    picker_similarity_fn.partial_fit(integer_vectors)
 
     assert picker_similarity_fn.n_seen == len(integer_vectors)
     assert picker_similarity_fn.n_accepted == 5
@@ -372,7 +372,7 @@ def uniform_rectangle(n_vectors=1_000, dim=2, seed: int = RANDOM_SEED):
 
 def test_custom_loss_fn(picker_loss_fn, uniform_rectangle):
     picker = picker_loss_fn
-    picker.update(uniform_rectangle)
+    picker.partial_fit(uniform_rectangle)
 
     min_dist_orig = dists_to_nearest_neighbor(uniform_rectangle, euclidean).min()
     min_dist_new = dists_to_nearest_neighbor(picker_loss_fn.vectors, euclidean).min()
