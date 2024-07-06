@@ -306,21 +306,21 @@ def test_fast_init(picker_euclidean: OnlineVectorPicker, circles, init_batch_siz
     assert counts["small"] <= 1
 
 
-# Test picker custom similarity functions
+# Test picker custom distance functions
 
-similarity_fns: tuple = get_args(DistanceFnLiteral) + (
-    lambda x, y: euclidean(x, y) + 10,  # similarities must me ordered, shift is ok
-    lambda x, y: euclidean(x, y) - 10,  # similarities must me ordered, negative is ok
+dist_fns: tuple = get_args(DistanceFnLiteral) + (
+    lambda x, y: euclidean(x, y) + 10,  # distances must me ordered, shift is ok
+    lambda x, y: euclidean(x, y) - 10,  # distances must me ordered, negative is ok
 )
 
 
-@pytest.fixture(params=similarity_fns)
-def picker_similarity_fn(request):
-    similarity_fn = request.param
+@pytest.fixture(params=dist_fns)
+def picker_dist_fn(request):
+    dist_fn = request.param
     return OnlineVectorPicker(
         capacity=5,
-        dist_fn=similarity_fn,
-        loss_fn="exponential",  # exp potential is used to treat negative similarities
+        dist_fn=dist_fn,
+        loss_fn="exponential",  # exp potential is used to treat negative distances
     )
 
 
@@ -334,16 +334,14 @@ def integer_vectors(n_vectors=1_000, dim=10, seed: int = RANDOM_SEED):
     )
 
 
-def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
-    picker_similarity_fn.partial_fit(integer_vectors)
+def test_custom_similarity_fn(picker_dist_fn, integer_vectors):
+    picker_dist_fn.partial_fit(integer_vectors)
 
-    assert picker_similarity_fn.n_seen == len(integer_vectors)
-    assert picker_similarity_fn.n_accepted == 5
+    assert picker_dist_fn.n_seen == len(integer_vectors)
+    assert picker_dist_fn.n_accepted == 5
 
     min_dist_orig = dists_to_nearest_neighbor(integer_vectors, euclidean).min()
-    min_dist_new = dists_to_nearest_neighbor(
-        picker_similarity_fn.vectors, euclidean
-    ).min()
+    min_dist_new = dists_to_nearest_neighbor(picker_dist_fn.vectors, euclidean).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
     factor = 1.5
@@ -351,11 +349,14 @@ def test_custom_similarity_fn(picker_similarity_fn, integer_vectors):
     assert (min_dist_new > factor * min_dist_orig).all()
 
 
-# Test custom potential functions
+# TODO: Test custom similarity functions
+
+
+# Test custom loss functions
 
 
 loss_fns: tuple = get_args(PotentialFnLiteral) + (
-    lambda d: jnp.exp(d),  # potentials must me ordered, negative is ok
+    lambda d: jnp.exp(d) - 100,  # losses must me ordered, negative is ok
 )
 
 
