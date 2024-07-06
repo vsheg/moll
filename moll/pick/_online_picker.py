@@ -219,6 +219,13 @@ class OnlineVectorPicker:
 
         return n_accepted
 
+    def fit(self, X, y=None):
+        """
+        Pick a subset of vectors based on their similarity.
+        """
+        self.partial_fit(X, y)
+        return self
+
     def add(self, vector: Array, label: Hashable | None = None) -> bool:
         """
         Add a vector to the picker.
