@@ -113,7 +113,7 @@ def _add_vector(
         is_accepted = needless_vector_vicinity_idx > 0
         needless_vector_idx = k_neighbors_idxs[needless_vector_vicinity_idx - 1]
 
-        is_accepted *= needless_vector_idx > min_changeable_idx
+        is_accepted *= needless_vector_idx >= min_changeable_idx
 
         X, needless_vector_idx = lax.cond(
             is_accepted,
