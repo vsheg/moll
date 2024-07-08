@@ -4,6 +4,7 @@ Online algorithm for adding vectors to a fixed-size set of vectors.
 
 from collections.abc import Callable
 from functools import partial
+from typing import Optional
 
 import jax
 import jax.numpy as jnp
@@ -78,10 +79,14 @@ def _add_vector(
     k_neighbors: int,
     n_valid_vectors: int,
     threshold: float,
+    n_pinned_vectors: int = 0,
 ) -> tuple[Array, bool, int]:
     """
     Adds a vector `x` to a fixed-size set of vectors `X`.
     """
+
+    n_valid_vectors += n_pinned_vectors
+    min_changeable_idx = n_pinned_vectors
 
     def below_threshold_or_infinite_potential(X, _):
         return X, -1
@@ -106,16 +111,18 @@ def _add_vector(
 
         # If the needless vector is not `x`, replace it with `x`
         is_accepted = needless_vector_vicinity_idx > 0
-        updated_vector_idx = k_neighbors_idxs[needless_vector_vicinity_idx - 1]
+        needless_vector_idx = k_neighbors_idxs[needless_vector_vicinity_idx - 1]
 
-        X, updated_vector_idx = lax.cond(
+        is_accepted *= needless_vector_idx > min_changeable_idx
+
+        X, needless_vector_idx = lax.cond(
             is_accepted,
-            lambda X, idx: (X.at[updated_vector_idx].set(x), idx),
+            lambda X, idx: (X.at[needless_vector_idx].set(x), idx),
             lambda X, _: (X, -1),
-            *(X, updated_vector_idx),
+            *(X, needless_vector_idx),
         )
 
-        return X, updated_vector_idx
+        return X, needless_vector_idx
 
     is_full = X.shape[0] == n_valid_vectors
 
@@ -168,7 +175,7 @@ def _finalize_updates(changes: Array) -> Array:
 @partial(
     jax.jit,
     static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
-    donate_argnames=["X", "xs"],
+    donate_argnames=["X", "X_pinned", "xs"],
 )
 def update_vectors(
     *,
@@ -180,9 +187,16 @@ def update_vectors(
     k_neighbors: int,
     threshold: float,
     n_valid: int,
+    X_pinned: Array | None = None,
 ) -> tuple[Array, Array, Array, int, int]:
     assert xs.shape[0] > 0
     # assert X.dtype == xs.dtype # TODO: fix dtype
+
+    # Prepend pinned vectors to the data
+    if n_pinned := (X_pinned.shape[0] if X_pinned is not None else 0):
+        X = lax.concatenate((X_pinned, X), 0)
+
+    n_pinned = X_pinned.shape[0] if X_pinned is not None else 0
 
     # Initialize array to store the information about the changes
     updated_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not updated
@@ -198,6 +212,7 @@ def update_vectors(
             loss_fn=loss_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
+            n_pinned_vectors=n_pinned,
             n_valid_vectors=n_valid_new,
         )
 
@@ -218,5 +233,9 @@ def update_vectors(
 
     n_appended = n_valid_new - n_valid
     n_updated = ((updated_idxs >= 0) & (updated_idxs < n_valid)).sum()
+
+    # Remove pinned vectors from the data
+    if n_pinned:
+        X = X[n_pinned:]
 
     return X, updated_idxs, acceptance_mask, n_appended, n_updated
