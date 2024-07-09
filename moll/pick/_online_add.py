@@ -79,14 +79,18 @@ def _add_vector(
     k_neighbors: int,
     n_valid_vectors: int,
     threshold: float,
-    n_pinned_vectors: int = 0,
-) -> tuple[Array, bool, int]:
+    X_pinned: Array | None = None,
+) -> tuple[Array, int]:
     """
     Adds a vector `x` to a fixed-size set of vectors `X`.
     """
 
-    n_valid_vectors += n_pinned_vectors
-    min_changeable_idx = n_pinned_vectors
+    # Prepend pinned vectors to the data
+    if n_pinned := (X_pinned.shape[0] if X_pinned is not None else 0):
+        X = jnp.concatenate((X_pinned, X), 0)  # TODO: what if dtypes are different?
+
+    n_valid_vectors += n_pinned
+    min_changeable_idx = n_pinned
 
     def below_threshold_or_infinite_potential(X, _):
         return X, -1
@@ -142,8 +146,13 @@ def _add_vector(
     is_potential_infinite = jnp.isinf(loss_fn(min_sim))
     branch_idx *= ~is_potential_infinite
 
-    result = X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
-    return result
+    X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
+
+    # Make a correction for the prepended pinned vectors
+    index_correction = jnp.where(updated_vector_idx >= n_pinned, n_pinned, 0)
+    updated_vector_idx -= index_correction
+
+    return X[n_pinned:], updated_vector_idx
 
 
 @partial(jax.jit, donate_argnames=["changes"], inline=True)
@@ -192,12 +201,6 @@ def update_vectors(
     assert xs.shape[0] > 0
     # assert X.dtype == xs.dtype # TODO: fix dtype
 
-    # Prepend pinned vectors to the data
-    if n_pinned := (X_pinned.shape[0] if X_pinned is not None else 0):
-        X = lax.concatenate((X_pinned, X), 0)
-
-    n_pinned = X_pinned.shape[0] if X_pinned is not None else 0
-
     # Initialize array to store the information about the changes
     updated_idxs = -jnp.ones(xs.shape[0], dtype=int)  # -1 means not updated
 
@@ -207,12 +210,12 @@ def update_vectors(
         X, updated_idx = _add_vector(
             x,
             X,
+            X_pinned=X_pinned,
             dist_fn=dist_fn,
             sim_fn=sim_fn,
             loss_fn=loss_fn,
             k_neighbors=k_neighbors,
             threshold=threshold,
-            n_pinned_vectors=n_pinned,
             n_valid_vectors=n_valid_new,
         )
 
@@ -233,9 +236,5 @@ def update_vectors(
 
     n_appended = n_valid_new - n_valid
     n_updated = ((updated_idxs >= 0) & (updated_idxs < n_valid)).sum()
-
-    # Remove pinned vectors from the data
-    if n_pinned:
-        X = X[n_pinned:]
 
     return X, updated_idxs, acceptance_mask, n_appended, n_updated
