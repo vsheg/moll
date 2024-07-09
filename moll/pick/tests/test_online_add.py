@@ -106,7 +106,44 @@ def test_add_vector(X, dist_fn):
 
 
 @pytest.mark.parametrize(
-    "xs, acc_mask",
+    "X_pinned, x, updated_idx",
+    [
+        (
+            [[-100, -100], [-200, -200]],
+            [4.3, 4.3],
+            4,
+        ),
+        (
+            [[4.31, 4.31]],
+            [4.3, 4.3],
+            -1,
+        ),
+    ],
+)
+def test_add_vector_with_pinned(X, X_pinned, x, updated_idx):
+    X_copy = X.copy()
+    X_pinned = jnp.array(X_pinned)
+    x = jnp.array(x)
+
+    X_updated, upd_idx = _add_vector(
+        x=x,
+        X=X,
+        X_pinned=X_pinned,
+        dist_fn=euclidean,
+        sim_fn=lambda d: d,
+        loss_fn=lambda s: s**-1,
+        k_neighbors=5,
+        n_valid_vectors=5,
+        threshold=0.0,
+    )
+    assert upd_idx == updated_idx
+
+    if updated_idx == -1:
+        assert (X_copy == X_updated).all()
+    else:
+        assert (X_updated == X_copy.at[updated_idx].set(x)).all()
+
+
     [
         (
             [[4.3, 4.3], [4.2, 4.2], [4.1, 4.1]],
