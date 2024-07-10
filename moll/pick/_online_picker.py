@@ -8,8 +8,9 @@ from functools import partial
 
 import jax.numpy as jnp
 import numpy as np
-from jax import Array
+from jax import Array, lax
 from jax.typing import DTypeLike
+from loguru import logger
 from numpy.typing import NDArray
 from public import public
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -37,6 +38,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
         self,
         capacity: int,
         *,
+        pinned: Array | None = None,
         dist_fn: DistanceFnCallable | DistanceFnLiteral = "euclidean",
         sim_fn: SimilarityFnCallable | SimilarityFnLiteral = "identity",
         loss_fn: LossFnCallable | LossFnLiteral = "power",
@@ -50,6 +52,8 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
         """
 
         self.capacity: int = capacity
+
+        self.pinned = pinned
 
         self.dist_fn: DistanceFnCallable = get_function_from_literal(
             dist_fn, module="moll.measures._distance"
@@ -67,8 +71,18 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
 
         self.threshold: float = threshold
 
+        # Inferred dtype
+        self.dtype: DTypeLike | None
+        match (dtype, pinned):
+            case (None, Array()):
+                self.dtype = pinned.dtype
+                logger.info(
+                    "Picker dtype={} was inferred from pinned vectors", self.dtype
+                )
+            case _:
+                self.dtype = dtype
+
         self._data: Array | None = None
-        self.dtype: DTypeLike | None = dtype
         self._labels = np.array([None] * capacity, dtype=object)
 
         self.n_seen: int = 0
@@ -98,9 +112,18 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
         return k_neighbors
 
     def _init_data(self, vector: Array, label=None):
-        """Initialize the picker with the first vector."""
-        dim = vector.shape[0]
-        self.dtype = vector.dtype
+        """
+        Initialize the picker with the first vector.
+        """
+        source = self.pinned if self.pinned is not None else vector
+        dim = source.shape[0]
+
+        if self.dtype is None:
+            self.dtype = source.dtype
+            logger.info(
+                "Picker dtype={} was inferred from the first vector", self.dtype
+            )
+
         self._data = jnp.zeros((self.capacity, dim), dtype=self.dtype)
         self._data = self._data.at[0].set(vector)
         self._labels[0] = label
@@ -194,6 +217,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
                 n_updated,
             ) = update_vectors(
                 X=self._data,
+                X_pinned=self.pinned,
                 xs=vectors,
                 dist_fn=self.dist_fn,
                 sim_fn=self.sim_fn,
@@ -322,3 +346,10 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
         if (data := self._data) is not None:
             return data.shape[1]
         return None
+
+    @property
+    def n_pinned(self) -> int:
+        """
+        Return the number of pinned vectors.
+        """
+        return 0 if self.pinned is None else self.pinned.shape[0]
