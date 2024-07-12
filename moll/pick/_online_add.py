@@ -66,7 +66,13 @@ def _k_neighbors(similarities: Array, k_neighbors: int):
 
 @partial(
     jax.jit,
-    static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
+    static_argnames=[
+        "dist_fn",
+        "sim_fn",
+        "loss_fn",
+        "k_neighbors",
+        "min_sim",
+    ],
     donate_argnames=["x", "X"],
     inline=True,
 )
@@ -78,7 +84,7 @@ def _add_vector(
     loss_fn: Callable[[Array], Array],
     k_neighbors: int,
     n_valid_vectors: int,
-    threshold: float,
+    min_sim: float,
     X_pinned: Array | None = None,
 ) -> tuple[Array, int]:
     """
@@ -131,8 +137,7 @@ def _add_vector(
     is_full = X.shape[0] == n_valid_vectors
 
     sims = _similarities(x, X, dist_fn, sim_fn, n_valid_vectors)
-    min_sim = sims.min()
-    is_above_threshold = min_sim > threshold
+    is_above_threshold = sims.min() > min_sim
 
     branches = [
         below_threshold_or_infinite_potential,
@@ -143,7 +148,7 @@ def _add_vector(
     branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
 
     # If the potential is infinite, the vector is always rejected
-    is_potential_infinite = jnp.isinf(loss_fn(min_sim))
+    is_potential_infinite = jnp.isinf(loss_fn(sims.min()))
     branch_idx *= ~is_potential_infinite
 
     X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
@@ -194,7 +199,7 @@ def update_vectors(
     sim_fn: Callable,
     loss_fn: Callable,
     k_neighbors: int,
-    threshold: float,
+    min_sim: float,
     n_valid: int,
     X_pinned: Array | None = None,
 ) -> tuple[Array, Array, Array, int, int]:
@@ -215,7 +220,7 @@ def update_vectors(
             sim_fn=sim_fn,
             loss_fn=loss_fn,
             k_neighbors=k_neighbors,
-            threshold=threshold,
+            min_sim=min_sim,
             n_valid_vectors=n_valid_new,
         )
 

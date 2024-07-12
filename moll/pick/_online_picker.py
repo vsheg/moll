@@ -44,7 +44,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
         loss_fn: LossFnCallable | LossFnLiteral = "power",
         p: float | int = -1,
         k_neighbors: int | float = 5,  # TODO: add heuristic for better default
-        threshold: float = -jnp.inf,
+        min_sim: float | None = None,
         dtype: DTypeLike | None = None,
     ):
         """
@@ -69,7 +69,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
 
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
-        self.threshold: float = threshold
+        self.min_sim: float = min_sim or (jnp.inf if maximize else -jnp.inf)
 
         # Inferred dtype
         self.dtype: DTypeLike | None
@@ -223,7 +223,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
                 sim_fn=self.sim_fn,
                 loss_fn=self.loss_fn,
                 k_neighbors=self.k_neighbors,
-                threshold=self.threshold,
+                min_sim=self.min_sim,
                 n_valid=self._n_valid,
             )
 
