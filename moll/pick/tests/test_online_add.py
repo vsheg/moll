@@ -97,7 +97,7 @@ def test_add_vector(X, dist_fn):
         loss_fn=lambda s: jnp.exp(-s),
         k_neighbors=5,
         n_valid_vectors=5,
-        threshold=-jnp.inf,
+        min_sim=-jnp.inf,
     )
     assert updated_idx >= 0
     assert updated_idx == 4
@@ -134,7 +134,7 @@ def test_add_vector_with_pinned(X, X_pinned, x, updated_idx):
         loss_fn=lambda s: s**-1,
         k_neighbors=5,
         n_valid_vectors=5,
-        threshold=0.0,
+        min_sim=0.0,
     )
     assert upd_idx == updated_idx
 
@@ -189,7 +189,7 @@ def test_update_vectors(X, X_pinned, xs, acc_mask):
         loss_fn=lambda s: s**-1,
         k_neighbors=5,
         n_valid=5,
-        threshold=0.0,
+        min_sim=0.0,
     )
 
     assert X_copy.shape == X_updated.shape
