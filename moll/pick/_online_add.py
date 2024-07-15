@@ -4,6 +4,7 @@ Online algorithm for adding vectors to a fixed-size set of vectors.
 
 from collections.abc import Callable
 from functools import partial
+from typing import Optional
 
 import jax
 import jax.numpy as jnp
@@ -65,7 +66,13 @@ def _k_neighbors(similarities: Array, k_neighbors: int):
 
 @partial(
     jax.jit,
-    static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
+    static_argnames=[
+        "dist_fn",
+        "sim_fn",
+        "loss_fn",
+        "k_neighbors",
+        "min_sim",
+    ],
     donate_argnames=["x", "X"],
     inline=True,
 )
@@ -77,11 +84,19 @@ def _add_vector(
     loss_fn: Callable[[Array], Array],
     k_neighbors: int,
     n_valid_vectors: int,
-    threshold: float,
-) -> tuple[Array, bool, int]:
+    min_sim: float,
+    X_pinned: Array | None = None,
+) -> tuple[Array, int]:
     """
     Adds a vector `x` to a fixed-size set of vectors `X`.
     """
+
+    # Prepend pinned vectors to the data
+    if n_pinned := (X_pinned.shape[0] if X_pinned is not None else 0):
+        X = jnp.concatenate((X_pinned, X), 0)  # TODO: what if dtypes are different?
+
+    n_valid_vectors += n_pinned
+    min_changeable_idx = n_pinned
 
     def below_threshold_or_infinite_potential(X, _):
         return X, -1
@@ -106,22 +121,23 @@ def _add_vector(
 
         # If the needless vector is not `x`, replace it with `x`
         is_accepted = needless_vector_vicinity_idx > 0
-        updated_vector_idx = k_neighbors_idxs[needless_vector_vicinity_idx - 1]
+        needless_vector_idx = k_neighbors_idxs[needless_vector_vicinity_idx - 1]
 
-        X, updated_vector_idx = lax.cond(
+        is_accepted *= needless_vector_idx >= min_changeable_idx
+
+        X, needless_vector_idx = lax.cond(
             is_accepted,
-            lambda X, idx: (X.at[updated_vector_idx].set(x), idx),
+            lambda X, idx: (X.at[needless_vector_idx].set(x), idx),
             lambda X, _: (X, -1),
-            *(X, updated_vector_idx),
+            *(X, needless_vector_idx),
         )
 
-        return X, updated_vector_idx
+        return X, needless_vector_idx
 
     is_full = X.shape[0] == n_valid_vectors
 
     sims = _similarities(x, X, dist_fn, sim_fn, n_valid_vectors)
-    min_sim = sims.min()
-    is_above_threshold = min_sim > threshold
+    is_above_threshold = sims.min() > min_sim
 
     branches = [
         below_threshold_or_infinite_potential,
@@ -132,11 +148,16 @@ def _add_vector(
     branch_idx = 0 + (is_above_threshold) + (is_full & is_above_threshold)
 
     # If the potential is infinite, the vector is always rejected
-    is_potential_infinite = jnp.isinf(loss_fn(min_sim))
+    is_potential_infinite = jnp.isinf(loss_fn(sims.min()))
     branch_idx *= ~is_potential_infinite
 
-    result = X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
-    return result
+    X, updated_vector_idx = lax.switch(branch_idx, branches, X, sims)
+
+    # Make a correction for the prepended pinned vectors
+    index_correction = jnp.where(updated_vector_idx >= n_pinned, n_pinned, 0)
+    updated_vector_idx -= index_correction
+
+    return X[n_pinned:], updated_vector_idx
 
 
 @partial(jax.jit, donate_argnames=["changes"], inline=True)
@@ -168,7 +189,7 @@ def _finalize_updates(changes: Array) -> Array:
 @partial(
     jax.jit,
     static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
-    donate_argnames=["X", "xs"],
+    donate_argnames=["X", "X_pinned", "xs"],
 )
 def update_vectors(
     *,
@@ -178,8 +199,9 @@ def update_vectors(
     sim_fn: Callable,
     loss_fn: Callable,
     k_neighbors: int,
-    threshold: float,
+    min_sim: float,
     n_valid: int,
+    X_pinned: Array | None = None,
 ) -> tuple[Array, Array, Array, int, int]:
     assert xs.shape[0] > 0
     # assert X.dtype == xs.dtype # TODO: fix dtype
@@ -193,11 +215,12 @@ def update_vectors(
         X, updated_idx = _add_vector(
             x,
             X,
+            X_pinned=X_pinned,
             dist_fn=dist_fn,
             sim_fn=sim_fn,
             loss_fn=loss_fn,
             k_neighbors=k_neighbors,
-            threshold=threshold,
+            min_sim=min_sim,
             n_valid_vectors=n_valid_new,
         )
 
