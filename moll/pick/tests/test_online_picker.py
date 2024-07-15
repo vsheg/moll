@@ -396,3 +396,34 @@ def test_custom_loss_fn(picker_loss_fn, uniform_rectangle):
     factor = 1.5
 
     assert (min_dist_new > factor * min_dist_orig).all()
+
+
+# Test pinned vectors
+
+
+@pytest.fixture
+def picker_with_pinned_vectors():
+    pinned = jnp.array([[0.1, 0.1], [1.1, 1.1]])
+    return OnlineVectorPicker(capacity=3, k_neighbors=3, pinned=pinned)
+
+
+@pytest.mark.parametrize(
+    "vectors",
+    [
+        jnp.array([[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6]]),
+        jnp.array(
+            [[2, 2], [3, 3], [100, 100], [0, 0], [1, 1], [0, 0], [1, 1], [0, 0], [1, 1]]
+        )
+        * 1.0,
+    ],
+)
+def test_picker_with_pinned_vectors(picker_with_pinned_vectors, vectors):
+    picker = picker_with_pinned_vectors
+
+    assert picker.is_empty()
+    assert picker.dtype is picker.pinned.dtype
+
+    picker.fit(vectors)
+
+    values, indices = jax.lax.top_k(-picker.vectors[:, 0], k=3)
+    assert jnp.allclose(picker.vectors, vectors[indices])
