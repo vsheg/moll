@@ -69,7 +69,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
 
         self.k_neighbors: int = self._init_k_neighbors(k_neighbors, capacity)
 
-        self.min_sim: float = min_sim or (jnp.inf if maximize else -jnp.inf)
+        self.min_sim: float = min_sim or -jnp.inf
 
         # Inferred dtype
         self.dtype: DTypeLike | None
