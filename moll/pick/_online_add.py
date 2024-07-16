@@ -127,7 +127,7 @@ def _add_vector(
 
         # Vector in the vicinity removing which decreases the total potential the most:
         needless_vector_vicinity_idx = _needless_vector_idx(
-            vicinity, dist_fn, sim_fn, loss_fn
+            vicinity, dist_fn, sim_fn, loss_fn, maximize=maximize
         )
 
         # If the needless vector is not `x`, replace it with `x`
