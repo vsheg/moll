@@ -61,6 +61,34 @@ def test_find_needless_vector(array, expected, dist_fn):
     assert idx == expected
 
 
+# Test needless vector search with maximization
+
+
+@pytest.mark.parametrize(
+    "array, idx_expected",
+    [
+        ([0, 0.1, 1], 2),
+        ([0, 1.1, 1], 0),
+        ([0, 0, 0, 1], 3),
+        ([(0.1, 0.1), (0, 0), (1, 1)], 2),
+    ],
+)
+@pytest.mark.parametrize(
+    "dist_fn",
+    [
+        euclidean,
+        lambda x, y: euclidean(x, y) - 10,  # negative distance is ok
+    ],
+)
+def test_find_needless_vector_with_maximize(array, idx_expected, dist_fn):
+    array = jnp.array(array)
+    # exp potential is used to treat negative distances
+    idx = _needless_vector_idx(
+        array, dist_fn, sim_fn=lambda d: d, loss_fn=lambda s: jnp.exp(-s), maximize=True
+    )
+    assert idx == idx_expected
+
+
 # Test add vectors
 
 
