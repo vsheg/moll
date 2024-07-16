@@ -13,13 +13,13 @@ from jax import Array, lax
 from ..utils import dist_matrix, fill_diagonal, matrix_cross_sum
 
 
-@partial(jax.jit, static_argnames=["dist_fn", "sim_fn", "loss_fn", "reject_inf"])
+@partial(jax.jit, static_argnames=["dist_fn", "sim_fn", "loss_fn", "maximize"])
 def _needless_vector_idx(
     vicinity: Array,
     dist_fn: Callable[[Array, Array], Array],
     sim_fn: Callable[[Array], Array],
     loss_fn: Callable[[Array], Array],
-    reject_inf: bool = True,
+    maximize: bool = False,
 ) -> int:
     """
     Find a vector in `X` removing which would decrease the total potential the most.
@@ -27,34 +27,24 @@ def _needless_vector_idx(
     # Calculate matrix of pairwise distances and corresponding matrix of potentials
     dist_mat = dist_matrix(vicinity, dist_fn)
     sim_mat = jax.vmap(sim_fn)(dist_mat)
-    potent_mat = jax.vmap(loss_fn)(sim_mat)
+    loss_mat = jax.vmap(loss_fn)(sim_mat)
 
-    is_loss_positive_inf = potent_mat.max() is jnp.inf
+    # Inherent potential of a vector is 0, it means that the vector by itself does not
+    # contribute to the total potential. In the future, the penalty for the vector itself
+    # can be added
+    loss_mat = fill_diagonal(loss_mat, 0)
 
-    def reject(_):
-        return 0
-
-    def do_work(potent_mat):
-        # Inherent potential of a vector is 0, it means that the vector by itself does not
-        # contribute to the total potential. In the future, the penalty for the vector itself
-        # can be added
-        potent_mat = fill_diagonal(potent_mat, 0)
-
-        # Compute potential decrease when each vector is deleted from the set
-        deltas = jax.vmap(lambda i: matrix_cross_sum(potent_mat, i, i, row_only=True))(
-            jnp.arange(vicinity.shape[0])
-        )
-
-        # Find vector that decreases total potential the most (deltas are negative)
-        idx = deltas.argmax()
-        return idx
-
-    idx = lax.cond(
-        reject_inf & is_loss_positive_inf,
-        reject,
-        do_work,
-        potent_mat,
+    # Compute potential decrease when each vector is deleted from the set
+    deltas = jax.vmap(lambda i: matrix_cross_sum(loss_mat, i, i, row_only=True))(
+        jnp.arange(vicinity.shape[0])
     )
+
+    # If the goal is to maximize the potential, return the vector with the largest delta
+    if maximize:
+        deltas = -deltas
+
+    # Find vector that decreases total potential the most (deltas are negative)
+    idx = deltas.argmax()
 
     return idx
 
