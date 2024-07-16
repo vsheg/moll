@@ -97,7 +97,7 @@ def test_add_vector(X, dist_fn):
         loss_fn=lambda s: jnp.exp(-s),
         k_neighbors=5,
         n_valid_vectors=5,
-        min_sim=-jnp.inf,
+        sim_min=-jnp.inf,
     )
     assert updated_idx >= 0
     assert updated_idx == 4
