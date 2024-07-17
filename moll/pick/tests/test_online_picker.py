@@ -9,7 +9,7 @@ import pytest
 from sklearn import datasets
 
 from ...measures import euclidean
-from ...utils import dists_to_nearest_neighbor, globs, random_grid_points
+from ...utils import dist_matrix, dists_to_others, globs, random_grid_points
 from .._online_picker import (
     DistanceFnLiteral,
     LossFnLiteral,
@@ -354,8 +354,8 @@ def test_custom_similarity_fn(picker_dist_fn, integer_vectors):
     assert picker_dist_fn.n_seen == len(integer_vectors)
     assert picker_dist_fn.n_accepted == 5
 
-    min_dist_orig = dists_to_nearest_neighbor(integer_vectors, euclidean).min()
-    min_dist_new = dists_to_nearest_neighbor(picker_dist_fn.vectors, euclidean).min()
+    min_dist_orig = dists_to_others(integer_vectors, euclidean).min()
+    min_dist_new = dists_to_others(picker_dist_fn.vectors, euclidean).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
     factor = 1.5
@@ -389,8 +389,8 @@ def test_custom_loss_fn(picker_loss_fn, uniform_rectangle):
     picker = picker_loss_fn
     picker.partial_fit(uniform_rectangle)
 
-    min_dist_orig = dists_to_nearest_neighbor(uniform_rectangle, euclidean).min()
-    min_dist_new = dists_to_nearest_neighbor(picker_loss_fn.vectors, euclidean).min()
+    min_dist_orig = dists_to_others(uniform_rectangle, euclidean).min()
+    min_dist_new = dists_to_others(picker_loss_fn.vectors, euclidean).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
     factor = 1.5
