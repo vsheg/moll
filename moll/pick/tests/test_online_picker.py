@@ -389,8 +389,8 @@ def test_custom_loss_fn(picker_loss_fn, uniform_rectangle):
     picker = picker_loss_fn
     picker.partial_fit(uniform_rectangle)
 
-    min_dist_orig = dists_to_others(uniform_rectangle, euclidean).min()
-    min_dist_new = dists_to_others(picker_loss_fn.vectors, euclidean).min()
+    min_dist_orig = dists_to_others(uniform_rectangle).min()
+    min_dist_new = dists_to_others(picker_loss_fn.vectors).min()
 
     # Check that the min pairwise distance is increased by at least a factor:
     factor = 1.5
@@ -438,22 +438,14 @@ def picker_with_loss_maximization():
 
 
 def test_picker_with_loss_maximization(
-    picker_with_loss_maximization, centers_and_vectors
+    picker_with_loss_maximization, uniform_rectangle
 ):
-    """
-    Test that the picker maximizes the loss function by comparing the distance distribution.
-
-    The distance distribution is calculated by finding the median distance from each
-    vector to all others. Then mean median distance before the selection is compared to
-    the minimum median distance after the selection.
-    """
     picker = picker_with_loss_maximization
-    centers, vectors = centers_and_vectors
+    vectors = uniform_rectangle
     picker.fit(vectors)
 
-    dist_median_mean_before = dists_to_others(vectors, reduce_fn=jnp.nanmedian).mean()
-    dist_median_min_after = dists_to_others(
-        picker.vectors, reduce_fn=jnp.nanmedian
-    ).min()
+    dist_median_mean_before = dists_to_others(vectors).mean()
+    dist_median_min_after = dists_to_others(picker.vectors).mean()
 
-    assert dist_median_min_after > dist_median_mean_before
+    # Test that the mean median distance is decreased by at least a factor of 1.5
+    assert dist_median_min_after < dist_median_mean_before / 1.5
