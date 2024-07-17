@@ -427,3 +427,32 @@ def test_picker_with_pinned_vectors(picker_with_pinned_vectors, vectors):
 
     values, indices = jax.lax.top_k(-picker.vectors[:, 0], k=3)
     assert jnp.allclose(picker.vectors, vectors[indices])
+
+
+# Test with maximize argument
+
+
+@pytest.fixture
+def picker_with_loss_maximization():
+    return OnlineVectorPicker(capacity=3, k_neighbors=3, maximize=True)
+
+
+def test_picker_with_loss_maximization(
+    picker_with_loss_maximization, centers_and_vectors
+):
+    """
+    Test that the picker maximizes the loss function by comparing the distance distribution.
+
+    The distance distribution is calculated by finding the median distance from each
+    vector to all others. Then mean median distance before the selection is compared to
+    the minimum median distance after the selection.
+    """
+    centers, vectors = centers_and_vectors
+    picker.fit(vectors)
+
+    dist_median_mean_before = dists_to_others(vectors, reduce_fn=jnp.nanmedian).mean()
+    dist_median_min_after = dists_to_others(
+        picker.vectors, reduce_fn=jnp.nanmedian
+    ).min()
+
+    assert dist_median_min_after > dist_median_mean_before
