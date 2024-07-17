@@ -231,6 +231,7 @@ class OnlineVectorPicker(BaseEstimator, TransformerMixin):
                 sim_min=self.sim_min,
                 sim_max=self.sim_max,
                 n_valid=self._n_valid,
+                maximize=self.maximize,
             )
 
             # Update vectors data

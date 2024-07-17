@@ -199,7 +199,7 @@ def _finalize_updates(changes: Array) -> Array:
 
 @partial(
     jax.jit,
-    static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors"],
+    static_argnames=["dist_fn", "sim_fn", "loss_fn", "k_neighbors", "maximize"],
     donate_argnames=["X", "X_pinned", "xs"],
 )
 def update_vectors(
@@ -214,6 +214,7 @@ def update_vectors(
     sim_max: float,
     n_valid: int,
     X_pinned: Array | None = None,
+    maximize: bool = False,
 ) -> tuple[Array, Array, Array, int, int]:
     assert xs.shape[0] > 0
     # assert X.dtype == xs.dtype # TODO: fix dtype
@@ -235,6 +236,7 @@ def update_vectors(
             sim_min=sim_min,
             sim_max=sim_max,
             n_valid_vectors=n_valid_new,
+            maximize=maximize,
         )
 
         n_valid_new = lax.cond(
