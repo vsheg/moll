@@ -447,6 +447,7 @@ def test_picker_with_loss_maximization(
     vector to all others. Then mean median distance before the selection is compared to
     the minimum median distance after the selection.
     """
+    picker = picker_with_loss_maximization
     centers, vectors = centers_and_vectors
     picker.fit(vectors)
 
