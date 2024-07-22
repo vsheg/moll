@@ -61,6 +61,34 @@ def test_find_needless_vector(array, expected, dist_fn):
     assert idx == expected
 
 
+# Test needless vector search with maximization
+
+
+@pytest.mark.parametrize(
+    "array, idx_expected",
+    [
+        ([0, 0.1, 1], 2),
+        ([0, 1.1, 1], 0),
+        ([0, 0, 0, 1], 3),
+        ([(0.1, 0.1), (0, 0), (1, 1)], 2),
+    ],
+)
+@pytest.mark.parametrize(
+    "dist_fn",
+    [
+        euclidean,
+        lambda x, y: euclidean(x, y) - 10,  # negative distance is ok
+    ],
+)
+def test_find_needless_vector_with_maximize(array, idx_expected, dist_fn):
+    array = jnp.array(array)
+    # exp potential is used to treat negative distances
+    idx = _needless_vector_idx(
+        array, dist_fn, sim_fn=lambda d: d, loss_fn=lambda s: jnp.exp(-s), maximize=True
+    )
+    assert idx == idx_expected
+
+
 # Test add vectors
 
 
@@ -97,7 +125,7 @@ def test_add_vector(X, dist_fn):
         loss_fn=lambda s: jnp.exp(-s),
         k_neighbors=5,
         n_valid_vectors=5,
-        min_sim=-jnp.inf,
+        sim_min=-jnp.inf,
     )
     assert updated_idx >= 0
     assert updated_idx == 4
@@ -134,7 +162,36 @@ def test_add_vector_with_pinned(X, X_pinned, x, updated_idx):
         loss_fn=lambda s: s**-1,
         k_neighbors=5,
         n_valid_vectors=5,
-        min_sim=0.0,
+    )
+    assert upd_idx == updated_idx
+
+    if updated_idx == -1:
+        assert (X_copy == X_updated).all()
+    else:
+        assert (X_updated == X_copy.at[updated_idx].set(x)).all()
+
+
+@pytest.mark.parametrize(
+    "x, updated_idx",
+    [
+        ([1.1, 1.1], 4),
+        ([0.1, 0.1], 4),
+        ([4.1, 4.1], 0),
+    ],
+)
+def test_add_vector_with_maximize(X, x, updated_idx):
+    X_copy = X.copy()
+    x = jnp.array(x)
+
+    X_updated, upd_idx = _add_vector(
+        x=x,
+        X=X,
+        dist_fn=euclidean,
+        sim_fn=lambda d: d,
+        loss_fn=lambda s: s**-1,
+        k_neighbors=5,
+        n_valid_vectors=len(X),
+        maximize=True,
     )
     assert upd_idx == updated_idx
 
@@ -189,7 +246,8 @@ def test_update_vectors(X, X_pinned, xs, acc_mask):
         loss_fn=lambda s: s**-1,
         k_neighbors=5,
         n_valid=5,
-        min_sim=0.0,
+        sim_min=0.0,
+        sim_max=jnp.inf,
     )
 
     assert X_copy.shape == X_updated.shape

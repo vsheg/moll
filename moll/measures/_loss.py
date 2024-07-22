@@ -23,7 +23,12 @@ def power(diff: ArrayLike, p: float = 2.0) -> Array:
         Array(1000., dtype=...)
     """
     diff = jnp.asarray(diff)
-    return jnp.where(diff > 0, jnp.power(diff, p), jnp.inf)
+
+    return jnp.where(
+        jnp.isclose(diff, 0),
+        jnp.inf,
+        jnp.power(diff, p),
+    )
 
 
 @public
@@ -60,11 +65,14 @@ def lennard_jones(diff: ArrayLike, p: float = 1.0) -> Array:
     """
     diff = jnp.asarray(diff)
     sigma: float = p * 0.5 ** (1 / 6)
-    return jnp.where(
+
+    acc = jnp.where(
         diff > 0,
         jnp.power(sigma / diff, 12.0) - jnp.power(sigma / diff, 6.0),
         jnp.inf,
     )
+
+    return jnp.where(jnp.isnan(diff), jnp.nan, acc)
 
 
 @public
