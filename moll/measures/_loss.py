@@ -23,7 +23,12 @@ def power(diff: ArrayLike, p: float = 2.0) -> Array:
         Array(1000., dtype=...)
     """
     diff = jnp.asarray(diff)
-    return jnp.power(jnp.abs(diff), p) * jnp.sign(diff)  # TODO: is this a good idea?
+
+    return jnp.where(
+        jnp.isclose(diff, 0),
+        jnp.inf,
+        jnp.power(diff, p),
+    )
 
 
 @public
