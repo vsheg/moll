@@ -13,6 +13,7 @@ from numpy.typing import DTypeLike as NPDTypeLike
 from numpy.typing import NDArray
 from public import public
 
+from ..measures._distance import euclidean
 from ._decorators import listify
 
 Seed: TypeAlias = int | Array | None
@@ -218,12 +219,23 @@ def matrix_cross_sum(X: Array, i: int, j: int, row_only=False, crossover=True):
 
 
 @public
-@partial(jax.jit, static_argnames="dist_fn")
-def dists_to_nearest_neighbor(vectors, dist_fn):
-    """Compute pairwise distances between vectors."""
+@partial(jax.jit, static_argnames=["dist_fn", "reduce_fn"])
+def dists_to_others(vectors, dist_fn=euclidean, reduce_fn=jnp.nanmin):
+    """
+    Compute the distance of each vector to all other vectors and reduce to a single value.
+
+    Examples:
+        >>> vectors = jnp.array([[0, 0], [1, 0], [0, 1]])
+
+        >>> dists_to_others(vectors).tolist()
+        [1.0, 1.0, 1.0]
+
+        >>> dists_to_others(vectors, reduce_fn=jnp.nanmax).tolist()
+        [1.0, 1.41..., 1.41...]
+    """
     dists_ = dist_matrix(vectors, dist_fn)
-    dists_ = fill_diagonal(dists_, jnp.inf)
-    return jnp.min(dists_, axis=0)
+    dists_ = fill_diagonal(dists_, jnp.nan)
+    return reduce_fn(dists_, axis=0)
 
 
 @public
