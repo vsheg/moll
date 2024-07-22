@@ -57,7 +57,7 @@ def _similarities(
         return lax.cond(
             i < n_valid,
             lambda i: sim_fn(dist_fn(x, X[i])),
-            lambda _: jnp.inf,
+            lambda _: jnp.nan,
             i,
         )
 
@@ -150,8 +150,8 @@ def _add_vector(
     sims = _similarities(x, X, dist_fn, sim_fn, n_valid_vectors)
     losses = jax.vmap(loss_fn)(sims)
 
-    has_loss_positive_inf = losses.max() == jnp.inf
-    is_within_sim_limits = (sim_min <= sims.min()) & (sims.max() <= sim_max)
+    has_loss_positive_inf = jnp.nanmax(losses) == jnp.inf
+    is_within_sim_limits = (sim_min <= jnp.nanmin(sims)) & (jnp.nanmax(sims) <= sim_max)
 
     branches = [
         outside_sim_limits_or_loss_positive_inf,
