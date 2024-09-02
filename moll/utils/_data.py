@@ -200,7 +200,7 @@ def iter_precompute(
 
 D = TypeVar("D")  # Data type
 B = TypeVar("B", bound=Iterable)  # Batch type
-T = TypeVar("T")  # Transformed batch type
+T = TypeVar("T", bound=Iterable)  # Transformed batch type
 
 
 @public
@@ -232,8 +232,8 @@ def iter_slices(
         >>> list(iter_slices(range(10), 3, filter_fn=lambda n: n % 2 == 0))
         [[0, 2, 4], [6, 8]]
 
-        If single data item has heterogeneous type, `transform_fn="transpose"` can be used to
-        split it into batches of homogeneous type:
+        If single data item has heterogeneous type, `transform_fn="transpose"` can be used
+        to split it into batches of homogeneous type:
         >>> data = [(1, "one"), (2, "two"), (3, "three"), (4, "four"), (5, "five")]
         >>> for num, word in iter_slices(data, 2, transform_fn="transpose"):
         ...     print(" plus ".join(word), "is", sum(num))
@@ -241,8 +241,8 @@ def iter_slices(
         three plus four is 7
         five is 5
 
-        When `transform_fn="transpose"`, *tuples of batches* are yielded rather than a single
-        batch and `collate_fn` is applied individually to each batch.
+        When `transform_fn="transpose"`, *tuples of batches* are yielded rather than a
+        single batch and `collate_fn` is applied individually to each batch.
         >>> list(iter_slices(data, 2, transform_fn="transpose", collate_fn=list))
         [([1, 2], ['one', 'two']), ([3, 4], ['three', 'four']), ([5], ['five'])]
     """
@@ -266,7 +266,7 @@ T = TypeVar("T")
 
 @public
 def iter_lines(
-    files: str | Iterable[str],
+    files: OneOrMany[str],
     skip_rows: int = 0,
     source_fn: Callable[[str], str] | Literal["filename", "stem"] | None = None,
     line_fn: Callable[[str], T] | None | Literal["split"] = None,
