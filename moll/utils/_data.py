@@ -245,6 +245,12 @@ def iter_slices(
         single batch and `collate_fn` is applied individually to each batch.
         >>> list(iter_slices(data, 2, transform_fn="transpose", collate_fn=list))
         [([1, 2], ['one', 'two']), ([3, 4], ['three', 'four']), ([5], ['five'])]
+
+        Custom transformation functions can be used:
+        >>> def compute_statistics(batch):
+        ...     return [min(batch), max(batch), sum(batch)]
+        >>> list(iter_slices(range(10), 3, transform_fn=compute_statistics))
+        [(0, 2, 3), (3, 5, 12), (6, 8, 21), (9, 9, 9)]
     """
     data = iter(data)
     if filter_fn is not None:
