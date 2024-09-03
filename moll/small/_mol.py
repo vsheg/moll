@@ -12,7 +12,7 @@ import numpy as np
 from numpy.typing import DTypeLike, NDArray
 from public import public
 from rdkit import Chem
-from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors  # type: ignore
+from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
 
 from ..typing import SMILES, FingerprintLiteral, RDKitAtom, RDKitMol
 from ..utils import fold
@@ -263,7 +263,7 @@ class Molecule:
             >>> Molecule.from_smiles("c1ccccc1").weight()
             78.04...
         """
-        return Chem.rdMolDescriptors.CalcExactMolWt(self.rdkit)
+        return rdMolDescriptors.CalcExactMolWt(self.rdkit)
 
     def counts(self, implicit=True) -> dict[str, int]:
         """
