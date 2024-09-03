@@ -117,6 +117,7 @@ ignore = [
     "D200", # one-line docstring should fit on one line 
     "D202", # no blank lines allowed after function docstring
     "D212", # start docstring on a first line
+    "E731", # do not assign a `lambda` expression, use a  `def`
 ]
 pydocstyle.convention = "google"
 
