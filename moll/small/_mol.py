@@ -241,7 +241,7 @@ class Molecule:
             >>> Molecule.from_smiles("c1ccccc1").n_rings()
             1
 
-            Naphtalene:
+            Naphthalene:
             >>> Molecule.from_smiles("c1ccc2ccccc2c1").n_rings()
             2
         """
@@ -319,7 +319,7 @@ class Molecule:
         Return the number of heteroatoms.
 
         Examples:
-            Furane:
+            Furan:
             >>> Molecule.from_smiles("O1cccc1").n_heteros()
             1
 
