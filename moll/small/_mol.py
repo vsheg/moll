@@ -142,7 +142,7 @@ class Molecule:
         """
         Return the RDKit Mol object.
         """
-        return self._rdkit_mol
+        return self._rdkit_mol  # type: ignore
 
     def to_fp(
         self,
@@ -283,7 +283,7 @@ class Molecule:
         else:
             mol = self.rdkit
         atom_counts = defaultdict(int)
-        for atom in mol.GetAtoms():
+        for atom in mol.GetAtoms():  # type: ignore
             symbol = atom.GetSymbol()
             atom_counts[symbol] += 1
         return dict(atom_counts)
@@ -311,7 +311,7 @@ class Molecule:
         else:
             mol = self.rdkit
 
-        for atom in mol.GetAtoms():
+        for atom in mol.GetAtoms():  # type: ignore
             yield Atom(atom)
 
     def n_heteros(self) -> int:
