@@ -436,3 +436,29 @@ def compose_fns(*fns: Callable[[Any], Any]) -> Callable[[Any], Any]:
         return unpack_values(args)
 
     return composition
+
+
+def flatten(iterable, only: int | None = 1) -> Generator:
+    """
+    Flatten a nested iterable.
+
+    Examples:
+        >>> list(flatten([[1, 2], [3, 4], [5, 6]]))
+        [1, 2, 3, 4, 5, 6]
+
+        >>> list(flatten([1, 2, [3, 4], [[[5, 6]]]]))
+        [1, 2, 3, 4, [[5, 6]]]
+
+        >>> list(flatten([1, 2, [3, 4], [[[5, 6]]]], only=None))
+        [1, 2, 3, 4, 5, 6]
+
+    """
+    for item in iterable:
+        if (
+            isinstance(item, Iterable)
+            and not isinstance(item, str | bytes)
+            and (only is None or only > 0)
+        ):
+            yield from flatten(item, only=None if only is None else only - 1)
+        else:
+            yield item
