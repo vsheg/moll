@@ -9,7 +9,7 @@ import pytest
 from sklearn import datasets
 
 from ...measures import euclidean
-from ...utils import dist_matrix, dists_to_others, globs, random_grid_points
+from ...utils import dists_to_others, globs, random_grid_points
 from .._online_picker import (
     DistanceFnLiteral,
     LossFnLiteral,
@@ -245,8 +245,7 @@ def test_fit_and_partial_fit(picker, centers_and_vectors):
 @pytest.fixture
 def circles(factor=0.1, random_state=42, n_samples=20):
     """
-    Generate 2 circles: a small one and a large one. Vectors in the small circle are not
-    favorable because of repulsion.
+    Generate 2 circles: a small one and a large one.
     """
     vectors, tags = datasets.make_circles(
         factor=factor, random_state=random_state, n_samples=n_samples
@@ -437,9 +436,7 @@ def picker_with_loss_maximization():
     return OnlineVectorPicker(capacity=3, k_neighbors=3, maximize=True)
 
 
-def test_picker_with_loss_maximization(
-    picker_with_loss_maximization, uniform_rectangle
-):
+def test_picker_with_loss_maximization(picker_with_loss_maximization, uniform_rectangle):
     picker = picker_with_loss_maximization
     vectors = uniform_rectangle
     picker.fit(vectors)

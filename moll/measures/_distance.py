@@ -78,7 +78,9 @@ def euclidean(u: ArrayLike, v: ArrayLike) -> Array:
 @partial(jax.jit, inline=True)
 def cosine(u: ArrayLike, v: ArrayLike) -> Array:
     r"""
-    Computes the cosine similarity between two vectors:
+    Computes the cosine similarity between two vectors.
+
+    The cosine similarity between two vectors $\bf u$ and $\bf v$ is defined as:
     $$ \cos \widehat{\bf u, \bf v} = \dfrac{\bf u \cdot \bf v}{\norm{\bf u} \cdot \norm{\bf v}}, $$
     this formula follows from the dot product expression:
     $$ \bf u \cdot \bf v = \norm{\bf u} \cdot \norm{\bf v} \cdot \cos \widehat{\bf u, \bf v}. $$
