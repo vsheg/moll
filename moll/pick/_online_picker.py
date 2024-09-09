@@ -8,7 +8,7 @@ from functools import partial
 
 import jax.numpy as jnp
 import numpy as np
-from jax import Array, lax
+from jax import Array
 from jax.typing import DTypeLike
 from loguru import logger
 from numpy.typing import NDArray

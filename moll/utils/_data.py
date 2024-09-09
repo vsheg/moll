@@ -6,12 +6,12 @@ import itertools
 import os
 from collections.abc import Callable, Generator, Iterable, Iterator
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from glob import glob
 from pathlib import Path
 from queue import Queue
 from threading import Thread
 from typing import Any, Literal, TypeVar
 
+from loguru import logger
 from public import public
 
 from ..typing import OneOrMany
@@ -200,7 +200,7 @@ def iter_precompute(
 
 D = TypeVar("D")  # Data type
 B = TypeVar("B", bound=Iterable)  # Batch type
-T = TypeVar("T")  # Transformed batch type
+T = TypeVar("T", bound=Iterable)  # Transformed batch type
 
 
 @public
@@ -211,7 +211,7 @@ def iter_slices(
     collate_fn: Callable[[Iterable[D]], B] = list,
     filter_fn: Callable[[D], bool] | None = None,
     transform_fn: Callable[[B], T] | Literal["transpose"] | None = None,
-) -> Generator[OneOrMany[B], None, None]:
+) -> Generator[OneOrMany[B | T], None, None]:
     """
     Split an iterable into batches of a given size.
 
@@ -232,8 +232,8 @@ def iter_slices(
         >>> list(iter_slices(range(10), 3, filter_fn=lambda n: n % 2 == 0))
         [[0, 2, 4], [6, 8]]
 
-        If single data item has heterogeneous type, `transform_fn="transpose"` can be used to
-        split it into batches of homogeneous type:
+        If single data item has heterogeneous type, `transform_fn="transpose"` can be used
+        to split it into batches of homogeneous type:
         >>> data = [(1, "one"), (2, "two"), (3, "three"), (4, "four"), (5, "five")]
         >>> for num, word in iter_slices(data, 2, transform_fn="transpose"):
         ...     print(" plus ".join(word), "is", sum(num))
@@ -241,10 +241,16 @@ def iter_slices(
         three plus four is 7
         five is 5
 
-        When `transform_fn="transpose"`, *tuples of batches* are yielded rather than a single
-        batch and `collate_fn` is applied individually to each batch.
+        When `transform_fn="transpose"`, *tuples of batches* are yielded rather than a
+        single batch and `collate_fn` is applied individually to each batch.
         >>> list(iter_slices(data, 2, transform_fn="transpose", collate_fn=list))
         [([1, 2], ['one', 'two']), ([3, 4], ['three', 'four']), ([5], ['five'])]
+
+        Custom transformation functions can be used:
+        >>> def compute_statistics(batch):
+        ...     return [min(batch), max(batch), sum(batch)]
+        >>> list(iter_slices(range(10), 3, transform_fn=compute_statistics))
+        [(0, 2, 3), (3, 5, 12), (6, 8, 21), (9, 9, 9)]
     """
     data = iter(data)
     if filter_fn is not None:
@@ -261,32 +267,59 @@ def iter_slices(
 
 ## -------------------------------------------------------------------------- ##
 
-T = TypeVar("T")
+T = TypeVar("T")  # transformed line type
 
 
 @public
 def iter_lines(
-    files: str | Iterable[str],
+    files: OneOrMany[str | Path],
     skip_rows: int = 0,
-    source_fn: Callable[[str], str] | Literal["filename", "stem"] | None = None,
-    line_fn: Callable[[str], T] | None | Literal["split"] = None,
-) -> Generator[tuple[str, int, str | T | tuple[str]], None, None]:
+    source_fn: Callable[[str | Path], str] | Literal["filename", "stem"] | None = None,
+    line_fn: Callable[[str], T] | Literal["split"] | None = None,
+    glob: bool = False,
+) -> Generator[tuple[Path | str, int, str | tuple[str, ...] | T], None, None]:
     """
     Iterate over lines in files.
     """
+
     files = pack_values(files)
 
-    # Expand globs
-    files = itertools.chain.from_iterable(map(glob, files))
+    if glob:
+        from glob import glob as glob_fn  # as built-in `glob` is shadowed
+
+        if len(files) > 1:
+            logger.warning(
+                "Multiple glob patterns were passed, it may produce duplicates"
+            )
+
+    paths_and_generators: list[Path | Generator[Path]] = []
+
+    for file in files:
+        match file, glob:
+            case str(), False:
+                paths_and_generators.append(Path(file))
+            case str(), True:
+                gen = (Path(f) for f in glob_fn(file))
+                paths_and_generators.append(gen)
+            case Path(), False:
+                paths_and_generators.append(file)
+            case Path(), True:
+                raise ValueError("Pass a string to `files` when using `glob=True`")
+            case _:
+                raise ValueError("Invalid arguments were passed: ")
 
     # Handle source label
     match source_fn:
         case None:
             pass
         case "name":
-            source_fn = lambda file: Path(file).name
+            source_fn = (
+                lambda file: Path(file).name if isinstance(file, str) else file.name
+            )
         case "stem":
-            source_fn = lambda file: Path(file).stem
+            source_fn = (
+                lambda file: Path(file).stem if isinstance(file, str) else file.stem
+            )
         case _ if callable(source_fn):
             source_fn = source_fn
         case _:
@@ -295,29 +328,38 @@ def iter_lines(
     # Handle line function
     match line_fn:
         case None:
-            pass
+            line_fn = identity
         case _ if callable(line_fn):
-            line_fn = line_fn
+            pass
         case "split":
-            line_fn = lambda line: tuple(line.split())
+            line_fn: Callable[[str], tuple[str, ...]] = lambda line: tuple(line.split())
         case _:
             raise ValueError(f"Invalid line function: {line_fn}")
 
     # Iterate over files
-    for file in files:
-        with Path(file).open() as f:
-            # Iterate over lines
-            for line_no, line in enumerate(iterable=f):
-                if line_no < skip_rows:
-                    continue
+    for path_or_generator in paths_and_generators:
+        # Convert single path to a iterable
+        match path_or_generator:
+            case Path():
+                paths = (path_or_generator,)
+            case Generator():
+                paths = path_or_generator
 
-                line = line.rstrip("\n")
+        # Iterate over paths
+        for path in paths:
+            with path.open() as f:
+                # Iterate over lines
+                for line_no, line in enumerate(iterable=f):
+                    if line_no < skip_rows:
+                        continue
 
-                yield (
-                    source_fn(file) if source_fn is not None else file,
-                    line_no,
-                    line_fn(line) if line_fn is not None else line,
-                )
+                    line = line.rstrip("\n")
+
+                    yield (
+                        source_fn(path) if source_fn is not None else path,
+                        line_no,
+                        line_fn(line),
+                    )
 
 
 ## -------------------------------------------------------------------------- ##
@@ -430,3 +472,29 @@ def compose_fns(*fns: Callable[[Any], Any]) -> Callable[[Any], Any]:
         return unpack_values(args)
 
     return composition
+
+
+def flatten(iterable, only: int | None = 1) -> Generator:
+    """
+    Flatten a nested iterable.
+
+    Examples:
+        >>> list(flatten([[1, 2], [3, 4], [5, 6]]))
+        [1, 2, 3, 4, 5, 6]
+
+        >>> list(flatten([1, 2, [3, 4], [[[5, 6]]]]))
+        [1, 2, 3, 4, [[5, 6]]]
+
+        >>> list(flatten([1, 2, [3, 4], [[[5, 6]]]], only=None))
+        [1, 2, 3, 4, 5, 6]
+
+    """
+    for item in iterable:
+        if (
+            isinstance(item, Iterable)
+            and not isinstance(item, str | bytes)
+            and (only is None or only > 0)
+        ):
+            yield from flatten(item, only=None if only is None else only - 1)
+        else:
+            yield item

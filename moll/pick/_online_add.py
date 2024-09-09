@@ -4,7 +4,6 @@ Online algorithm for adding vectors to a fixed-size set of vectors.
 
 from collections.abc import Callable
 from functools import partial
-from typing import Optional
 
 import jax
 import jax.numpy as jnp
@@ -50,9 +49,7 @@ def _needless_vector_idx(
 
 
 @partial(jax.jit, static_argnames=["dist_fn", "sim_fn"])
-def _similarities(
-    x: Array, X: Array, dist_fn: Callable, sim_fn: Callable, n_valid: int
-):
+def _similarities(x: Array, X: Array, dist_fn: Callable, sim_fn: Callable, n_valid: int):
     def sim_i(i):
         return lax.cond(
             i < n_valid,
@@ -105,7 +102,8 @@ def _add_vector(
 
     # Prepend pinned vectors to the data
     if n_pinned := (X_pinned.shape[0] if X_pinned is not None else 0):
-        X = jnp.concatenate((X_pinned, X), 0)  # TODO: what if dtypes are different?
+        # TODO: test the case when dtypes of X and X_pinned are different.
+        X = jnp.concatenate((X_pinned, X), 0)  # type: ignore
 
     n_valid_vectors += n_pinned
     min_changeable_idx = n_pinned
