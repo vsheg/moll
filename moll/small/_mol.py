@@ -12,7 +12,7 @@ import numpy as np
 from numpy.typing import DTypeLike, NDArray
 from public import public
 from rdkit import Chem
-from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors  # type: ignore
+from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
 
 from ..typing import SMILES, FingerprintLiteral, RDKitAtom, RDKitMol
 from ..utils import fold
@@ -142,7 +142,7 @@ class Molecule:
         """
         Return the RDKit Mol object.
         """
-        return self._rdkit_mol
+        return self._rdkit_mol  # type: ignore
 
     def to_fp(
         self,
@@ -241,7 +241,7 @@ class Molecule:
             >>> Molecule.from_smiles("c1ccccc1").n_rings()
             1
 
-            Naphtalene:
+            Naphthalene:
             >>> Molecule.from_smiles("c1ccc2ccccc2c1").n_rings()
             2
         """
@@ -263,7 +263,7 @@ class Molecule:
             >>> Molecule.from_smiles("c1ccccc1").weight()
             78.04...
         """
-        return Chem.rdMolDescriptors.CalcExactMolWt(self.rdkit)
+        return rdMolDescriptors.CalcExactMolWt(self.rdkit)
 
     def counts(self, implicit=True) -> dict[str, int]:
         """
@@ -283,7 +283,7 @@ class Molecule:
         else:
             mol = self.rdkit
         atom_counts = defaultdict(int)
-        for atom in mol.GetAtoms():
+        for atom in mol.GetAtoms():  # type: ignore
             symbol = atom.GetSymbol()
             atom_counts[symbol] += 1
         return dict(atom_counts)
@@ -311,7 +311,7 @@ class Molecule:
         else:
             mol = self.rdkit
 
-        for atom in mol.GetAtoms():
+        for atom in mol.GetAtoms():  # type: ignore
             yield Atom(atom)
 
     def n_heteros(self) -> int:
@@ -319,7 +319,7 @@ class Molecule:
         Return the number of heteroatoms.
 
         Examples:
-            Furane:
+            Furan:
             >>> Molecule.from_smiles("O1cccc1").n_heteros()
             1
 

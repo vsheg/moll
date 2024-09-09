@@ -106,10 +106,10 @@ def no_warnings(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if suppress_rdkit and RDLogger is not None:
-                RDLogger.DisableLog("rdApp.*")
+                RDLogger.DisableLog("rdApp.*")  # type: ignore
             result = fn(*args, **kwargs)
             if suppress_rdkit and RDLogger is not None:
-                RDLogger.EnableLog("rdApp.*")
+                RDLogger.EnableLog("rdApp.*")  # type: ignore
         return result
 
     return wrapper
@@ -119,7 +119,7 @@ def no_warnings(
 @args_support
 def no_exceptions(
     fn: Callable,
-    exceptions: OneOrMany[type[BaseException]] = Exception,
+    exceptions: OneOrMany[type[Exception]] = Exception,
     default: Any = None,
 ) -> Callable:
     """
@@ -150,7 +150,7 @@ def no_exceptions(
     def wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except exceptions:
+        except exceptions:  # type: ignore
             return default
 
     return wrapper
