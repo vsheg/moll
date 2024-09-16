@@ -1,0 +1,20 @@
+C[C@H](N)C(=O)O	alanine	A
+N[C@@H](CS)C(=O)O	cysteine	C
+N[C@@H](CC(=O)O)C(=O)O	aspartic acid	D
+N[C@@H](CCC(=O)O)C(=O)O	glutamic acid	E
+N[C@@H](Cc1ccccc1)C(=O)O	phenylalanine	F
+NCC(=O)O	glycine	G
+N[C@@H](Cc1cnc[nH]1)C(=O)O	histidine	H
+CCC(C)[C@H](N)C(=O)O	isoleucine	I
+NCCCC[C@H](N)C(=O)O	lysine	K
+CC(C)C[C@H](N)C(=O)O	leucine	L
+CSCC[C@H](N)C(=O)O	methionine	M
+NC(=O)C[C@H](N)C(=O)O	asparagine	N
+O=C(O)[C@@H]1CCCN1	proline	P
+NC(=O)CC[C@H](N)C(=O)O	glutamine	Q
+N=C(N)NCCC[C@H](N)C(=O)O	arginine	R
+N[C@@H](CO)C(=O)O	serine	S
+CC(O)[C@H](N)C(=O)O	threonine	T
+CC(C)[C@H](N)C(=O)O	valine	V
+N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O	tryptophan	W
+N[C@@H](Cc1ccc(O)cc1)C(=O)O	tyrosine	Y
