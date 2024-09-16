@@ -3,9 +3,10 @@ This module contains the `Molecule` class.
 """
 
 from collections import defaultdict
-from collections.abc import Generator, Hashable
+from collections.abc import Generator, Hashable, Iterable
 from dataclasses import dataclass
 from functools import cache
+from pathlib import Path
 from typing import TypeVar
 
 import numpy as np
@@ -136,6 +137,42 @@ class Molecule:
         if not isinstance(rdkit_mol, RDKitMol):
             raise TypeError("Input is not an RDKit Mol object")
         return cls(rdkit_mol=rdkit_mol, label=label)
+
+    @classmethod
+    def from_smi_file(
+        cls,
+        path: str | Path,
+        labels: Iterable[Hashable] | int | None = None,
+        delim: str = "\t",
+        title: bool = False,
+        sanitize: bool = True,
+    ) -> Generator[Self, None, None]:
+        """
+        Create molecules from a SMILES (.smi) file.
+        """
+
+        path = Path(path)
+
+        match labels:
+            case None:
+                name_col = 1
+            case int():
+                name_col = labels
+                labels = None
+            case Iterable():
+                name_col = 1
+                labels = iter(labels)
+
+        with Chem.SmilesMolSupplier(
+            str(path),
+            delimiter=delim,
+            titleLine=title,
+            sanitize=sanitize,
+            nameColumn=name_col,
+        ) as supp:
+            for i, mol in enumerate(supp):
+                label = i if labels is None else next(labels)
+                yield cls.from_rdkit(mol, label=label)
 
     @property
     def rdkit(self) -> RDKitMol:
