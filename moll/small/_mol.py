@@ -7,6 +7,7 @@ from collections.abc import Generator, Hashable, Iterable
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from types import EllipsisType
 from typing import TypeVar
 
 import numpy as np
@@ -142,36 +143,75 @@ class Molecule:
     def from_smi_file(
         cls,
         path: str | Path,
-        labels: Iterable[Hashable] | int | None = None,
+        labels: Iterable[Hashable] | int | None | EllipsisType = 1,
         delim: str = "\t",
+        smiles_col: int = 0,
         title: bool = False,
         sanitize: bool = True,
+        default_label: Hashable = None,
     ) -> Generator[Self, None, None]:
         """
         Create molecules from a SMILES (.smi) file.
+
+        Examples:
+            >>> from moll.data import amino_acids_smi
+            >>> mols = list(Molecule.from_smi_file(amino_acids_smi))
+            >>> len(mols)
+            20
+
+            By default, the labels are inferred from the 1st column:
+            >>> mols[0].label
+            'alanine'
+
+            Alternatively, the labels can be inferred from the order with ellipsis:
+            >>> mols = list(Molecule.from_smi_file(amino_acids_smi, labels=...))
+            >>> mols[10].label
+            10
+
+            Labels can be provided explicitly. If fewer labels are provided,
+            `default_label` is used:
+            >>> mols = list(Molecule.from_smi_file(amino_acids_smi, labels="abcde"))
+            >>> mols[0].label
+            'a'
+            >>> mols[10].label is None
+            True
+
         """
 
-        path = Path(path)
+        if not (path := Path(path)).exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        labels_col = None  # labels in the file
 
         match labels:
-            case None:
-                name_col = 1
             case int():
-                name_col = labels
+                # reuse labels in the file
+                labels_col = labels
                 labels = None
+            case None:
+                # default labels will be used
+                labels = iter([])
             case Iterable():
-                name_col = 1
                 labels = iter(labels)
 
         with Chem.SmilesMolSupplier(
             str(path),
+            smilesColumn=smiles_col,
+            nameColumn=-1 if labels_col is None else labels_col,
             delimiter=delim,
             titleLine=title,
             sanitize=sanitize,
-            nameColumn=name_col,
         ) as supp:
             for i, mol in enumerate(supp):
-                label = i if labels is None else next(labels)
+                if labels_col:
+                    label_smi = mol.GetProp("_Name")
+                    label = label_smi or default_label
+
+                elif labels is ...:
+                    label = i
+                else:
+                    label = next(labels, default_label)  # type: ignore
+
                 yield cls.from_rdkit(mol, label=label)
 
     @property
