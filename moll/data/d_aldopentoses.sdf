@@ -22,6 +22,12 @@ D-arabinose
   2  9  1  6
   1 10  1  0
 M  END
+>  <IUPAC_name>  (1) 
+(2S,3R,4R)-2,3,4,5-tetrahydroxypentanal
+
+>  <SMILES>  (1) 
+C([C@H]([C@H]([C@@H](C=O)O)O)O)O
+
 $$$$
 D-lyxose
      RDKit          3D
@@ -47,6 +53,12 @@ D-lyxose
   2  9  1  6
   1 10  1  0
 M  END
+>  <IUPAC_name>  (2) 
+(2S,3S,4R)-2,3,4,5-tetrahydroxypentanal
+
+>  <SMILES>  (2) 
+C([C@H]([C@@H]([C@@H](C=O)O)O)O)O
+
 $$$$
 D-ribose
      RDKit          3D
@@ -72,6 +84,12 @@ D-ribose
   2  9  1  1
   1 10  1  0
 M  END
+>  <IUPAC_name>  (3) 
+(2R,3R,4R)-2,3,4,5-tetrahydroxypentanal
+
+>  <SMILES>  (3) 
+C([C@H]([C@H]([C@H](C=O)O)O)O)O
+
 $$$$
 D-xylose
      RDKit          3D
@@ -97,4 +115,10 @@ D-xylose
   2  9  1  1
   1 10  1  0
 M  END
+>  <IUPAC_name>  (4) 
+(2R,3S,4R)-2,3,4,5-tetrahydroxypentanal
+
+>  <SMILES>  (4) 
+C([C@H]([C@@H]([C@H](C=O)O)O)O)O
+
 $$$$
