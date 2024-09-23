@@ -3,7 +3,7 @@ This module contains the `Molecule` class.
 """
 
 from collections import defaultdict
-from collections.abc import Generator, Hashable, Iterable
+from collections.abc import Generator, Hashable, Iterable, Iterator
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -211,6 +211,80 @@ class Molecule:
                     label = i
                 else:
                     label = next(labels, default_label)  # type: ignore
+
+                yield cls.from_rdkit(mol, label=label)
+
+    @classmethod
+    def from_sdf_file(
+        cls,
+        path: str | Path,
+        labels: Iterable[Hashable] | str | None | EllipsisType = "_Name",
+        sanitize: bool = True,
+        remove_hs: bool = True,
+        strictParsing: bool = True,
+        default_label: Hashable = None,
+    ) -> Generator[Self, None, None]:
+        """
+        Create molecules from an SDF (.sdf) file.
+
+        Examples:
+            >>> from moll.data import d_aldopentoses_sdf
+            >>> mols = list(Molecule.from_sdf_file(d_aldopentoses_sdf))
+            >>> len(mols)
+            4
+
+            By default, the labels are inferred from SDF molecule names (ID):
+            >>> mols[0].label
+            'D-arabinose'
+
+            Alternatively, the labels can be inferred from the order with ellipsis:
+            >>> mols = list(Molecule.from_sdf_file(d_aldopentoses_sdf, labels=...))
+            >>> mols[3].label
+            3
+
+            Specific SDF properties can be used as labels:
+            >>> mols = list(Molecule.from_sdf_file(d_aldopentoses_sdf, labels="IUPAC_name"))
+            >>> mols[0].label
+            '(2S,3R,4R)-2,3,4,5-tetrahydroxypentanal'
+
+            Labels can be provided explicitly. If fewer labels are provided,
+            `default_label` is used:
+            >>> mols = list(
+            ...     Molecule.from_sdf_file(d_aldopentoses_sdf, labels=["a", "b", "c"])
+            ... )
+            >>> mols[1].label
+            'b'
+            >>> mols[3].label is None
+            True
+        """
+
+        if not (path := Path(path)).exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        match labels:
+            case str():
+                pass
+            case Iterable():
+                labels = iter(labels)
+
+        with Chem.SDMolSupplier(
+            str(path),
+            sanitize=sanitize,
+            removeHs=remove_hs,
+            strictParsing=strictParsing,
+        ) as supp:
+            for i, mol in enumerate(supp):
+                match labels:
+                    case EllipsisType():
+                        label = i
+                    case None:
+                        label = None
+                    case str():
+                        label = mol.GetProp(labels) or default_label
+                    case Iterator():
+                        label = next(labels, default_label)  # type: ignore
+                    case _:
+                        raise ValueError(f"Invalid labels: {labels}")
 
                 yield cls.from_rdkit(mol, label=label)
 
