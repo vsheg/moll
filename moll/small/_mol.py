@@ -221,8 +221,9 @@ class Molecule:
         labels: Iterable[Hashable] | str | None | EllipsisType = "_Name",
         sanitize: bool = True,
         remove_hs: bool = True,
-        strictParsing: bool = True,
+        strict_parsing: bool = True,
         default_label: Hashable = None,
+        parallel: bool = False,
     ) -> Generator[Self, None, None]:
         """
         Create molecules from an SDF (.sdf) file.
@@ -256,37 +257,57 @@ class Molecule:
             'b'
             >>> mols[3].label is None
             True
+
+            To read the file in parallel, set `parallel=True`:
+            >>> mols = list(Molecule.from_sdf_file(d_aldopentoses_sdf, parallel=True))
+            >>> mols[0].label
+            'D-arabinose'
         """
 
-        if not (path := Path(path)).exists():
+        path = Path(path)
+        if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
         match labels:
-            case str():
-                pass
-            case Iterable():
-                labels = iter(labels)
+            case None:
 
-        with Chem.SDMolSupplier(
+                def get_label(mol, i):
+                    return None
+            case EllipsisType():
+
+                def get_label(mol, i):
+                    return i
+            case str():
+                prop_name = labels
+
+                def get_label(mol, i):
+                    return (
+                        mol.GetProp(prop_name)
+                        if mol.HasProp(prop_name)
+                        else default_label
+                    )
+            case labels if isinstance(labels, Iterable):
+                labels_iter = iter(labels)
+
+                def get_label(mol, i):
+                    return next(labels_iter, default_label)
+            case _:
+                raise ValueError(f"Invalid labels: {labels}")
+
+        Supplier = Chem.SDMolSupplier if not parallel else Chem.MultithreadedSDMolSupplier
+
+        with Supplier(
             str(path),
             sanitize=sanitize,
             removeHs=remove_hs,
-            strictParsing=strictParsing,
-        ) as supp:
-            for i, mol in enumerate(supp):
-                match labels:
-                    case EllipsisType():
-                        label = i
-                    case None:
-                        label = None
-                    case str():
-                        label = mol.GetProp(labels) or default_label
-                    case Iterator():
-                        label = next(labels, default_label)  # type: ignore
-                    case _:
-                        raise ValueError(f"Invalid labels: {labels}")
-
-                yield cls.from_rdkit(mol, label=label)
+            strictParsing=strict_parsing,
+        ) as suppl:
+            for i, mol in enumerate(suppl):
+                if mol is None:
+                    yield None  # For molecules that could not be parsed
+                else:
+                    label = get_label(mol, i)
+                    yield cls.from_rdkit(mol, label=label)
 
     @property
     def rdkit(self) -> RDKitMol:
