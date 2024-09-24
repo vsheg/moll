@@ -144,12 +144,12 @@ class Molecule:
         cls,
         path: str | Path,
         labels: Iterable[Hashable] | int | None | EllipsisType = 1,
-        delim: str = "\t",
+        delimiter: str = "\t",
         smiles_col: int = 0,
-        title: bool = False,
+        title_line: bool = False,
         sanitize: bool = True,
-        default_label: Hashable = None,
-    ) -> Generator[Self, None, None]:
+        default_label: Hashable | None = None,
+    ) -> Generator[Self | None, None, None]:
         """
         Create molecules from a SMILES (.smi) file.
 
@@ -175,44 +175,51 @@ class Molecule:
             'a'
             >>> mols[10].label is None
             True
-
         """
 
-        if not (path := Path(path)).exists():
+        path = Path(path)
+        if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
-        labels_col = None  # labels in the file
+        labels_col = None  # Column index for labels in the file
 
         match labels:
             case int():
-                # reuse labels in the file
+                # Use the specified column in the file as labels
                 labels_col = labels
-                labels = None
+
+                def get_label(mol, i):
+                    return mol.GetProp("_Name") or default_label
             case None:
-                # default labels will be used
-                labels = iter([])
-            case Iterable():
-                labels = iter(labels)
+                # All labels are None
+                def get_label(mol, i):
+                    return None
+            case EllipsisType():
+                # Use the molecule's index as the label
+                def get_label(mol, i):
+                    return i
+            case labels if isinstance(labels, Iterable):
+                labels_iter = iter(labels)
+
+                def get_label(mol, i):
+                    return next(labels_iter, default_label)
+            case _:
+                raise ValueError(f"Invalid labels: {labels}")
 
         with Chem.SmilesMolSupplier(
             str(path),
             smilesColumn=smiles_col,
-            nameColumn=-1 if labels_col is None else labels_col,
-            delimiter=delim,
-            titleLine=title,
+            nameColumn=labels_col if labels_col is not None else -1,
+            delimiter=delimiter,
+            titleLine=title_line,
             sanitize=sanitize,
-        ) as supp:
-            for i, mol in enumerate(supp):
-                if labels_col:
-                    label_smi = mol.GetProp("_Name")
-                    label = label_smi or default_label
-
-                elif labels is ...:
-                    label = i
+        ) as suppl:
+            for i, mol in enumerate(suppl):
+                if mol is None:
+                    yield None  # For molecules that could not be parsed
                 else:
-                    label = next(labels, default_label)  # type: ignore
-
-                yield cls.from_rdkit(mol, label=label)
+                    label = get_label(mol, i)
+                    yield cls.from_rdkit(mol, label=label)
 
     @classmethod
     def from_sdf_file(
