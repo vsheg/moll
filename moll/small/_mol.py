@@ -16,6 +16,7 @@ from public import public
 from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
 
+from ..io import check_file
 from ..typing import SMILES, FingerprintLiteral, RDKitAtom, RDKitMol
 from ..utils import fold
 
@@ -177,9 +178,7 @@ class Molecule:
             True
         """
 
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+        path = check_file(path)
 
         labels_col = None  # Column index for labels in the file
 
@@ -198,7 +197,7 @@ class Molecule:
                 # Use the molecule's index as the label
                 def get_label(mol, i):
                     return i
-            case labels if isinstance(labels, Iterable):
+            case Iterable():
                 labels_iter = iter(labels)
 
                 def get_label(mol, i):
@@ -231,7 +230,7 @@ class Molecule:
         strict_parsing: bool = True,
         default_label: Hashable = None,
         parallel: bool = False,
-    ) -> Generator[Self, None, None]:
+    ) -> Generator[Self | None, None, None]:
         """
         Create molecules from an SDF (.sdf) file.
 
@@ -271,9 +270,7 @@ class Molecule:
             'D-arabinose'
         """
 
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+        path = check_file(path)
 
         match labels:
             case None:
@@ -293,7 +290,7 @@ class Molecule:
                         if mol.HasProp(prop_name)
                         else default_label
                     )
-            case labels if isinstance(labels, Iterable):
+            case Iterable():
                 labels_iter = iter(labels)
 
                 def get_label(mol, i):
