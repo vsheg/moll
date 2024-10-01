@@ -313,6 +313,87 @@ class Molecule:
                     label = get_label(mol, i)
                     yield cls.from_rdkit(mol, label=label)
 
+    @classmethod
+    def from_mol2_file(
+        cls,
+        path: str | Path,
+        labels: Iterable[Hashable] | None | EllipsisType | bool = True,
+        remove_hs=True,
+        sanitize: bool = True,
+        default_label: Hashable = None,
+    ) -> Generator[Self, None, None]:
+        """
+        Test the from_mol2_file method of the Molecule class.
+
+        Examples:
+            >>> from moll.data import saturated_fatty_acids_mol2
+
+            >>> mols = list(Molecule.from_mol2_file(saturated_fatty_acids_mol2))
+            >>> len(mols)
+            7
+
+            By default, the labels are taken from the file:
+            >>> mols[0].label
+            'lauric acid'
+
+            Explicit labels can be provided:
+            >>> mols = list(
+            ...     Molecule.from_mol2_file(
+            ...         saturated_fatty_acids_mol2, labels=["a", "b", "c"]
+            ...     )
+            ... )
+            >>> mols[0].label
+            'a'
+            >>> mols[3].label is None
+            True
+
+            Labels can be inferred from the order with ellipsis:
+            >>> mols = list(Molecule.from_mol2_file(saturated_fatty_acids_mol2, labels=...))
+            >>> mols[3].label
+            3
+
+            All labels can be set to `None`:
+            >>> mols = list(Molecule.from_mol2_file(saturated_fatty_acids_mol2, labels=None))
+            >>> mols[0].label is None
+            True
+        """
+
+        path = check_file(path)
+
+        from datamol.io import read_mol2file
+
+        mols = read_mol2file(
+            path,
+            remove_hs=remove_hs,
+            sanitize=sanitize,
+            cleanup_substructures=True,  # TODO: remove or make it optional?
+        )
+
+        match labels:
+            case None:
+                # All labels are None
+                def get_label(mol, i):
+                    return None
+            case True:
+                # Reuse the title as the label:
+                def get_label(mol, i):
+                    return mol.GetProp("_Name") or default_label
+            case EllipsisType():
+                # Use the molecule's index as the label
+                def get_label(mol, i):
+                    return i
+            case Iterable():
+                labels_iter = iter(labels)
+
+                def get_label(mol, i):
+                    return next(labels_iter, default_label)
+            case _:
+                raise ValueError(f"Invalid labels: {labels}")
+
+        for i, mol in enumerate(mols):
+            label = get_label(mol, i)
+            yield cls.from_rdkit(mol, label=label)
+
     @property
     def rdkit(self) -> RDKitMol:
         """
