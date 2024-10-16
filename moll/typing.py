@@ -1,6 +1,7 @@
 """
 Type aliases and protocols used throughout the package.
 """
+
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import (
@@ -49,7 +50,7 @@ RDKitMol: TypeAlias = Chem.rdchem.Mol
 RDKitAtom: TypeAlias = Chem.rdchem.Atom
 SMILES: TypeAlias = str
 
-FingerprintLiteral = Literal["morgan"]
+FingerprintLiteral = Literal["ecfp"]
 
 PathLike: TypeAlias = str | Path
 
@@ -62,11 +63,9 @@ class Indexable(Protocol[T]):
     Protocol for objects that can be accessed by index or slice.
     """
 
-    def __getitem__(self, key) -> T:
-        ...
+    def __getitem__(self, key) -> T: ...
 
-    def __len__(self) -> int:
-        ...
+    def __len__(self) -> int: ...
 
 
 del T

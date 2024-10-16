@@ -32,7 +32,7 @@ def _fp_generator(kind: FingerprintLiteral, radius: int, size: int):
     Return cached fingerprint generator.
     """
     match kind:
-        case "morgan":
+        case "ecfp":
             return rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=size)
         case _:
             raise ValueError(f"Unknown fingerprint kind: {kind}")
